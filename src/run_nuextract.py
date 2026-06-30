@@ -10,7 +10,7 @@ def parse_args():
         description='Arguments for running NuExtract Model.'
     )
 
-    parser.add_argument('--checkpoint_path', default='numind/NuExtract-tiny-v1.5')
+    parser.add_argument('--info_extraction_model', default='numind/NuExtract-tiny-v1.5')
     parser.add_argument('--template_path', required=True)
     parser.add_argument('--device', default=None)
     parser.add_argument('--temperature', default=1.0)
@@ -29,14 +29,14 @@ def get_device():
 def main():
     args = parse_args()
 
-    CHECKPOINT_PATH = args.checkpoint_path
+    INFO_EXTRACT_CHECKPOINT_PATH = args.info_extraction_model
     DEVICE = args.device if args.device else get_device()
     TEMPLATE_PATH = args.template_path
     TEMPERATURE = args.temperature
 
-    model = (
+    info_extraction_model = (
         AutoModelForCausalLM.from_pretrained(
-            CHECKPOINT_PATH,
+            INFO_EXTRACT_CHECKPOINT_PATH,
             torch_dtype=torch.bfloat16,
             trust_remote_code=True,
         )
@@ -44,7 +44,9 @@ def main():
         .eval()
     )
 
-    tokenizer = AutoTokenizer.from_pretrained(CHECKPOINT_PATH, trust_remote_code=True)
+    info_extraction_tokenizer = AutoTokenizer.from_pretrained(
+        INFO_EXTRACT_CHECKPOINT_PATH, trust_remote_code=True
+    )
 
     with open(TEMPLATE_PATH) as f:
         template = json.load(f)
@@ -58,7 +60,7 @@ def main():
     )
 
     with torch.no_grad():
-        encoding = tokenizer(
+        encoding = info_extraction_tokenizer(
             [prompt],
             return_tensors='pt',
             truncation=True,
@@ -66,11 +68,13 @@ def main():
             max_length=10_000,
         ).to(DEVICE)
 
-        prediction = model.generate(
+        prediction = info_extraction_model.generate(
             **encoding, temperature=TEMPERATURE, max_new_tokens=4_000
         )
 
-        output = tokenizer.batch_decode(prediction, skip_special_tokens=True)
+        output = info_extraction_tokenizer.batch_decode(
+            prediction, skip_special_tokens=True
+        )
 
         print(output[0].split('<|output|>')[1])
 
