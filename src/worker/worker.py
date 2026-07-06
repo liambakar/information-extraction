@@ -2,17 +2,14 @@ import json
 import os
 import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'extraction'))
-sys.path.insert(0, os.path.dirname(__file__))
-
-from resume_lib import (
+from src.worker.resume_lib import (
     DEFAULT_DATASET_PATH,
     DEFAULT_OUTPUT_PATH,
     claim_next_row,
     complete_row,
     release_worker_claims,
 )
-from run_nuextract3 import load_model, load_template, run_extraction
+from src.extraction.run_nuextract3 import load_model, load_template, run_extraction
 
 
 def parse_bool_env(name, default=False):
@@ -39,7 +36,9 @@ def main():
     dataset_path = os.environ.get('DATASET_PATH', DEFAULT_DATASET_PATH)
     output_path = os.environ.get('OUTPUT_PATH', DEFAULT_OUTPUT_PATH)
     lock_path = os.environ.get('LOCK_PATH') or None
-    template_path = os.environ.get('TEMPLATE_PATH', 'extraction_templates/template.json')
+    template_path = os.environ.get(
+        'TEMPLATE_PATH', 'extraction_templates/template.json'
+    )
     model_id = os.environ.get('MODEL_ID', 'numind/NuExtract3')
     temperature = float(os.environ.get('TEMPERATURE', '0.2'))
     max_new_tokens = int(os.environ.get('MAX_NEW_TOKENS', '4096'))

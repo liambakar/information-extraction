@@ -1,7 +1,6 @@
 import json
 import os
 import tempfile
-import time
 
 from file_lock import exclusive_lock, resolve_lock_path
 
@@ -93,9 +92,11 @@ def release_worker_claims(dataset_path, worker_id, lock_path=None):
         rows = read_jsonl(dataset_path)
         count = 0
         for row in rows:
-            if (row.get('claimed_by') == worker_id
-                    and row.get('read') is True
-                    and row.get('processed') is not True):
+            if (
+                row.get('claimed_by') == worker_id
+                and row.get('read') is True
+                and row.get('processed') is not True
+            ):
                 row['read'] = False
                 row.pop('claimed_by', None)
                 row.pop('claimed_at', None)

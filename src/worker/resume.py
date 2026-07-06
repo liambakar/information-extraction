@@ -4,7 +4,6 @@ import sys
 from resume_lib import (
     DEFAULT_DATASET_PATH,
     DEFAULT_OUTPUT_PATH,
-    release_worker_claims,
     reset_all_rows,
     reset_incomplete_rows,
 )
