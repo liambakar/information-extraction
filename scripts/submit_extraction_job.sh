@@ -40,7 +40,7 @@ sbatch <<EOT
 #!/bin/bash
 #SBATCH --job-name="info_extraction_${RUN_NAME}"
 #SBATCH --mail-type=END,FAIL
-#SBATCH --mail-user=lbakar@uw.edu
+#SBATCH --mail-user=lbakar@uw.edu,vysri@cs.washington.edu
 
 #SBATCH --account=cse
 #SBATCH --partition=ckpt-all
