@@ -14,7 +14,7 @@ echo "======================================"
 # ----------------------------
 # Environment setup
 # ----------------------------
-source /gscratch/ubicomp/vysri/miniconda/etc/profile.d/conda.sh
+source /gscratch/ubicomp/lbakar/miniconda/etc/profile.d/conda.sh
 conda activate genome
 
 # ----------------------------
