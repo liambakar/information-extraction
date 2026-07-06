@@ -1,0 +1,7 @@
+{"index": 0, "example_id": 0, "utterance_id": 0, "type": ["Symptoms"], "modality": "text", "utterance": "Knee's been bothering me after yesterday's ride. That old injury acting up again.", "processed": false, "read": false}
+{"index": 1, "example_id": 0, "utterance_id": 1, "type": ["Symptoms"], "modality": "text", "utterance": "My knee is starting to ache. Think the cycling yesterday irritated it.", "processed": false, "read": true, "claimed_by": "worker_1"}
+{"index": 2, "example_id": 0, "utterance_id": 2, "type": ["Symptoms"], "modality": "text", "utterance": "Left knee flaring up a bit. Old cycling injury.", "processed": false, "read": false}
+{"index": 3, "example_id": 0, "utterance_id": 3, "type": ["Symptoms"], "modality": "text", "utterance": "Knee pain from yesterday's long ride. Same old issue.", "processed": false, "read": false}
+{"index": 4, "example_id": 0, "utterance_id": 4, "type": ["Symptoms"], "modality": "text", "utterance": "The knee is tender today after pushing hard on the bike yesterday.", "processed": false, "read": false}
+{"index": 5, "example_id": 1, "utterance_id": 0, "type": ["Symptoms"], "modality": "text", "utterance": "my back's been sore all day, probably from hunching over at work again", "processed": false, "read": false}
+{"index": 6, "example_id": 1, "utterance_id": 1, "type": ["Symptoms"], "modality": "text", "utterance": "back pain is getting annoying, I think it's from sitting at my desk too much", "processed": false, "read": false}

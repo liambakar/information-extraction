@@ -36,6 +36,6 @@ echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-unset}"
 # ----------------------------
 # Run resumable extraction
 # ----------------------------
-bash scripts/run_resume_extraction.sh
+python3 src/worker/worker.py
 
 echo "Extraction worker finished successfully."

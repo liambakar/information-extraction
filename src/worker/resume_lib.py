@@ -9,7 +9,6 @@ from file_lock import exclusive_lock, resolve_lock_path
 DEFAULT_DATASET_PATH = 'datasets/preprocessed_dataset_claude_5_tones.jsonl'
 DEFAULT_OUTPUT_PATH = 'out/nuextract3_outputs.jsonl'
 NO_WORK_EXIT_CODE = 2
-DEFAULT_CLAIM_TIMEOUT_SECONDS = 6 * 60 * 60
 OUTPUT_FIELDS = (
     'index',
     'example_id',
@@ -61,19 +60,6 @@ def write_jsonl_atomic(path, rows):
         raise
 
 
-def claim_is_stale(row, claim_timeout_seconds):
-    claimed_at = row.get('claimed_at')
-    if claimed_at is None:
-        return True
-
-    try:
-        claimed_at = float(claimed_at)
-    except (TypeError, ValueError):
-        return True
-
-    return time.time() - claimed_at > claim_timeout_seconds
-
-
 def find_unread_unprocessed(rows):
     for row in rows:
         if row.get('processed') is False and row.get('read') is False:
@@ -82,13 +68,11 @@ def find_unread_unprocessed(rows):
     return None
 
 
-def find_claimable(rows, claim_timeout_seconds):
+def find_claimable(rows):
     for row in rows:
         if row.get('processed') is not False:
             continue
         if row.get('read') is not True:
-            return row
-        if claim_is_stale(row, claim_timeout_seconds):
             return row
 
     return None
@@ -102,27 +86,72 @@ def find_row_by_index(rows, index):
     return None
 
 
+def release_worker_claims(dataset_path, worker_id, lock_path=None):
+    lock_path = resolve_lock_path(dataset_path, lock_path)
+
+    with exclusive_lock(lock_path):
+        rows = read_jsonl(dataset_path)
+        count = 0
+        for row in rows:
+            if (row.get('claimed_by') == worker_id
+                    and row.get('read') is True
+                    and row.get('processed') is not True):
+                row['read'] = False
+                row.pop('claimed_by', None)
+                row.pop('claimed_at', None)
+                count += 1
+        write_jsonl_atomic(dataset_path, rows)
+        return count
+
+
+def reset_incomplete_rows(dataset_path, lock_path=None):
+    lock_path = resolve_lock_path(dataset_path, lock_path)
+
+    with exclusive_lock(lock_path):
+        rows = read_jsonl(dataset_path)
+        count = 0
+        for row in rows:
+            if row.get('read') is True and row.get('processed') is not True:
+                row['read'] = False
+                row.pop('claimed_by', None)
+                row.pop('claimed_at', None)
+                count += 1
+        write_jsonl_atomic(dataset_path, rows)
+        return count
+
+
+def reset_all_rows(dataset_path, output_path, lock_path=None):
+    lock_path = resolve_lock_path(dataset_path, lock_path)
+
+    with exclusive_lock(lock_path):
+        rows = read_jsonl(dataset_path)
+        for row in rows:
+            row['read'] = False
+            row['processed'] = False
+            row.pop('claimed_by', None)
+            row.pop('claimed_at', None)
+        write_jsonl_atomic(dataset_path, rows)
+        if output_path and os.path.exists(output_path):
+            os.remove(output_path)
+        return len(rows)
+
+
 def find_next_row(dataset_path):
     rows = read_jsonl(dataset_path)
     return find_unread_unprocessed(rows)
 
 
-def claim_next_row(dataset_path, lock_path=None, claim_timeout_seconds=None):
-    claim_timeout_seconds = (
-        DEFAULT_CLAIM_TIMEOUT_SECONDS
-        if claim_timeout_seconds is None
-        else claim_timeout_seconds
-    )
+def claim_next_row(dataset_path, worker_id, lock_path=None):
     lock_path = resolve_lock_path(dataset_path, lock_path)
 
     with exclusive_lock(lock_path):
         rows = read_jsonl(dataset_path)
-        row = find_claimable(rows, claim_timeout_seconds)
+        row = find_claimable(rows)
         if row is None:
             return None
 
+        row['claimed_by'] = worker_id
         row['read'] = True
-        row['claimed_at'] = time.time()
         write_jsonl_atomic(dataset_path, rows)
         return row
 
@@ -169,8 +198,7 @@ def append_output(output_path, source_row, extraction):
         os.fsync(output_file.fileno())
 
 
-def complete_row(dataset_path, output_path, index, extraction_path, lock_path=None):
-    extraction = read_extraction(extraction_path)
+def complete_row(dataset_path, output_path, index, extraction, lock_path=None):
     lock_path = resolve_lock_path(dataset_path, lock_path)
 
     with exclusive_lock(lock_path):
@@ -185,5 +213,6 @@ def complete_row(dataset_path, output_path, index, extraction_path, lock_path=No
 
         source_row['read'] = True
         source_row['processed'] = True
+        source_row.pop('claimed_by', None)
         write_jsonl_atomic(dataset_path, rows)
         return source_row

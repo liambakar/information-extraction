@@ -5,9 +5,14 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import textwrap
 import time
 from pathlib import Path
+
+from resume_lib import (
+    claim_next_row,
+    complete_row,
+    release_worker_claims,
+)
 
 
 def parse_args():
@@ -52,60 +57,51 @@ def build_dataset(row_count):
     return rows
 
 
-def write_fake_extractor(path, sleep_seconds):
-    script = f"""
-import argparse
-import json
-import os
-import time
 
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--text', required=True)
-args = parser.parse_args()
+def worker_process(worker_id, dataset_path, output_path, sleep_seconds):
+    lock_path = None
+    try:
+        release_worker_claims(str(dataset_path), str(worker_id), lock_path)
+        while True:
+            row = claim_next_row(str(dataset_path), str(worker_id), lock_path)
+            if row is None:
+                return 0
 
-time.sleep({sleep_seconds!r})
-print(
-    json.dumps(
-        {{
-            'fake_model': True,
-            'worker_pid': os.getpid(),
-            'text': args.text,
-        }}
-    )
-)
-"""
-    path.write_text(textwrap.dedent(script).lstrip())
+            time.sleep(sleep_seconds)
+            extraction = {
+                'fake_model': True,
+                'worker_id': worker_id,
+                'text': row['utterance'],
+            }
+            complete_row(str(dataset_path), str(output_path), row['index'], extraction, lock_path)
+    except Exception as exc:
+        print(f'Worker {worker_id} error: {exc}', file=sys.stderr)
+        return 1
 
 
-def start_workers(repo_root, work_dir, fake_extractor_path, worker_count):
+def start_workers(work_dir, worker_count, sleep_seconds):
     dataset_path = work_dir / 'dataset.jsonl'
     output_path = work_dir / 'outputs.jsonl'
-    runner_path = repo_root / 'scripts/run_resume_extraction.sh'
-    state_script_path = repo_root / 'src/worker/resume.py'
 
     workers = []
     for worker_id in range(worker_count):
-        env = os.environ.copy()
-        env.update(
-            {
-                'DATASET_PATH': str(dataset_path),
-                'OUTPUT_PATH': str(output_path),
-                'EXTRACT_SCRIPT': str(fake_extractor_path),
-                'STATE_SCRIPT': str(state_script_path),
-                'CLAIM_TIMEOUT_SECONDS': '3600',
-            }
+        proc = subprocess.Popen(
+            [
+                sys.executable,
+                '-c',
+                f"""
+import sys
+sys.path.insert(0, '{Path(__file__).parent}')
+from sample_multi_worker_flow import worker_process
+sys.exit(worker_process({worker_id}, {repr(str(dataset_path))}, {repr(str(output_path))}, {sleep_seconds}))
+""",
+            ],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
         )
-        workers.append(
-            subprocess.Popen(
-                ['bash', str(runner_path)],
-                cwd=repo_root,
-                env=env,
-                text=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-            )
-        )
+        workers.append(proc)
 
     return workers
 
@@ -161,23 +157,19 @@ def validate_results(dataset_path, output_path, expected_rows):
 
 def main():
     args = parse_args()
-    repo_root = Path(__file__).resolve().parents[2]
     work_dir = Path(tempfile.mkdtemp(prefix='multi-worker-flow-', dir='/private/tmp'))
 
     try:
         dataset_path = work_dir / 'dataset.jsonl'
         output_path = work_dir / 'outputs.jsonl'
-        fake_extractor_path = work_dir / 'fake_extractor.py'
 
         write_jsonl(dataset_path, build_dataset(args.rows))
-        write_fake_extractor(fake_extractor_path, args.sleep_seconds)
 
         started_at = time.time()
         workers = start_workers(
-            repo_root=repo_root,
             work_dir=work_dir,
-            fake_extractor_path=fake_extractor_path,
             worker_count=args.workers,
+            sleep_seconds=args.sleep_seconds,
         )
         wait_for_workers(workers)
         validate_results(dataset_path, output_path, args.rows)
