@@ -2,7 +2,13 @@ import json
 import os
 import tempfile
 
-from file_lock import exclusive_lock, resolve_lock_path
+try:
+    from .file_lock import exclusive_lock, resolve_lock_path
+except ImportError:
+    try:
+        from src.worker.file_lock import exclusive_lock, resolve_lock_path
+    except ImportError:
+        from file_lock import exclusive_lock, resolve_lock_path
 
 
 DEFAULT_DATASET_PATH = 'datasets/preprocessed_dataset_claude_5_tones.jsonl'

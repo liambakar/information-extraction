@@ -23,12 +23,12 @@ def determine_worker_id():
     return os.environ.get('SLURM_ARRAY_TASK_ID', 'local')
 
 
-def log(message):
-    print(f'[worker] {message}', flush=True)
+def log(worker_id, message):
+    print(f'[worker {worker_id}] {message}', flush=True)
 
 
-def log_error(message):
-    print(f'[worker] ERROR: {message}', file=sys.stderr, flush=True)
+def log_error(worker_id, message):
+    print(f'[worker {worker_id}] ERROR: {message}', file=sys.stderr, flush=True)
 
 
 def main():
@@ -44,15 +44,15 @@ def main():
     max_new_tokens = int(os.environ.get('MAX_NEW_TOKENS', '4096'))
     enable_thinking = parse_bool_env('ENABLE_THINKING', default=False)
 
-    log(f'worker_id={worker_id} starting up')
+    log(worker_id, 'starting up')
 
     released = release_worker_claims(dataset_path, worker_id, lock_path)
-    log(f'released {released} stuck claim(s) owned by worker_id={worker_id}')
+    log(worker_id, f'released {released} stuck claim(s)')
 
-    log(f'loading model {model_id}')
+    log(worker_id, f'loading model {model_id}')
     processor, model = load_model(model_id)
     template = load_template(template_path)
-    log('model and template loaded; entering claim loop')
+    log(worker_id, 'model and template loaded; entering claim loop')
 
     run_claim_loop(
         dataset_path,
@@ -83,11 +83,11 @@ def run_claim_loop(
     while True:
         row = claim_next_row(dataset_path, worker_id, lock_path)
         if row is None:
-            log('no claimable rows remain; exiting')
+            log(worker_id, 'no claimable rows remain; exiting')
             return
 
         index = row['index']
-        log(f'claimed index={index}')
+        log(worker_id, f'claimed index={index}')
         try:
             extraction_text = run_extraction(
                 text=row['utterance'],
@@ -100,9 +100,9 @@ def run_claim_loop(
             )
             extraction = json.loads(extraction_text)
             complete_row(dataset_path, output_path, index, extraction, lock_path)
-            log(f'completed index={index}')
+            log(worker_id, f'completed index={index}')
         except Exception as exc:
-            log_error(f'failed index={index}: {exc}')
+            log_error(worker_id, f'failed index={index}: {exc}')
             continue
 
 
