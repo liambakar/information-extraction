@@ -1,0 +1,27 @@
+{
+    "activity": {
+        "type": ["physical", "social", "intellectual", "productive"],
+        "keywords": ["string"],
+        "duration": "duration",
+        "location": "string",
+        "date": "date-time"
+    },
+    "food": {
+        "consumed_items": ["string"],
+        "missing_items": ["string"],
+        "amount": ["string"]
+    },
+    "mood": {
+        "description": "string",
+        "classification": ["positive", "neutral", "negative"]
+    },
+    "symptom": {
+        "keywords": ["string"],
+        "description": "string"
+    },
+    "treatment": {
+        "name": "string",
+        "dosage": "string",
+        "status": ["taken", "recommended", "postponed", "missed"]
+    }
+}
