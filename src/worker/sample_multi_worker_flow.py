@@ -1,6 +1,5 @@
 import argparse
 import json
-import os
 import shutil
 import subprocess
 import sys
@@ -57,8 +56,6 @@ def build_dataset(row_count):
     return rows
 
 
-
-
 def worker_process(worker_id, dataset_path, output_path, sleep_seconds):
     lock_path = None
     try:
@@ -74,7 +71,9 @@ def worker_process(worker_id, dataset_path, output_path, sleep_seconds):
                 'worker_id': worker_id,
                 'text': row['utterance'],
             }
-            complete_row(str(dataset_path), str(output_path), row['index'], extraction, lock_path)
+            complete_row(
+                str(dataset_path), str(output_path), row['index'], extraction, lock_path
+            )
     except Exception as exc:
         print(f'Worker {worker_id} error: {exc}', file=sys.stderr)
         return 1
