@@ -1,6 +1,8 @@
 import json
 import os
+import shutil
 import tempfile
+from glob import glob
 
 try:
     from .file_lock import exclusive_lock, resolve_lock_path
@@ -91,6 +93,17 @@ def find_row_by_index(rows, index):
     return None
 
 
+def cleanup_stale_locks(dataset_path):
+    directory = os.path.dirname(dataset_path) or '.'
+    lock_pattern = os.path.join(directory, '*.lock')
+    for lock_dir in glob(lock_pattern):
+        try:
+            if os.path.isdir(lock_dir):
+                shutil.rmtree(lock_dir)
+        except Exception:
+            pass
+
+
 def release_worker_claims(dataset_path, worker_id, lock_path=None):
     lock_path = resolve_lock_path(dataset_path, lock_path)
 
@@ -112,41 +125,31 @@ def release_worker_claims(dataset_path, worker_id, lock_path=None):
 
 
 def reset_incomplete_rows(dataset_path, lock_path=None):
-    lock_path = resolve_lock_path(dataset_path, lock_path)
-    print('getting lock')
-    print('lock path: ', lock_path)
-    with exclusive_lock(lock_path):
-        print('opened lock')
-        rows = read_jsonl(dataset_path)
-        print('read jsonl')
-        count = 0
-        for row in rows:
-            print('row: ', row)
-            if row.get('read') is True and row.get('processed') is not True:
-                row['read'] = False
-                row.pop('claimed_by', None)
-                row.pop('claimed_at', None)
-                count += 1
-        print('reset the rows')
-        write_jsonl_atomic(dataset_path, rows)
-        print('file written')
-        return count
+    cleanup_stale_locks(dataset_path)
+    rows = read_jsonl(dataset_path)
+    count = 0
+    for row in rows:
+        if row.get('read') is True and row.get('processed') is not True:
+            row['read'] = False
+            row.pop('claimed_by', None)
+            row.pop('claimed_at', None)
+            count += 1
+    write_jsonl_atomic(dataset_path, rows)
+    return count
 
 
 def reset_all_rows(dataset_path, output_path, lock_path=None):
-    lock_path = resolve_lock_path(dataset_path, lock_path)
-
-    with exclusive_lock(lock_path):
-        rows = read_jsonl(dataset_path)
-        for row in rows:
-            row['read'] = False
-            row['processed'] = False
-            row.pop('claimed_by', None)
-            row.pop('claimed_at', None)
-        write_jsonl_atomic(dataset_path, rows)
-        if output_path and os.path.exists(output_path):
-            os.remove(output_path)
-        return len(rows)
+    cleanup_stale_locks(dataset_path)
+    rows = read_jsonl(dataset_path)
+    for row in rows:
+        row['read'] = False
+        row['processed'] = False
+        row.pop('claimed_by', None)
+        row.pop('claimed_at', None)
+    write_jsonl_atomic(dataset_path, rows)
+    if output_path and os.path.exists(output_path):
+        os.remove(output_path)
+    return len(rows)
 
 
 def find_next_row(dataset_path):
