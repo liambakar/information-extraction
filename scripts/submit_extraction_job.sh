@@ -9,10 +9,11 @@ fi
 RUN_NAME=$1
 OUTPUT_DIR=$2
 NUM_WORKERS=$3
+DATASET_PATH=$4
 RESET_SCRATCH=false
 
 
-for arg in "${@:4}"; do
+for arg in "${@:5}"; do
     if [[ "$arg" == "--reset-scratch" ]]; then
         RESET_SCRATCH=true
     fi
@@ -37,7 +38,7 @@ MAX_ARRAY_INDEX=$((NUM_WORKERS - 1))
 # On requeue, per-worker release_worker_claims() handles recovery per worker
 if [[ "$RESET_SCRATCH" == "true" ]]; then
     echo "Resetting from scratch (full wipe)..."
-    python3 src/worker/resume.py reset-scratch
+    python3 src/worker/resume.py reset-scratch --dataset_path $DATASET_PATH
 else
     echo "Resetting incomplete rows (entrypoint)..."
     bash scripts/reset_entrypoint.sh
@@ -63,7 +64,7 @@ sbatch <<EOT
 
 #SBATCH --open-mode=append
 #SBATCH --chdir=/mmfs1/gscratch/ubicomp/lbakar/information-extraction
-#SBATCH --export=all,RUN_NAME=${RUN_NAME},OUTPUT_DIR=${OUTPUT_DIR}
+#SBATCH --export=all,RUN_NAME=${RUN_NAME},OUTPUT_DIR=${OUTPUT_DIR},DATASET_PATH=${DATASET_PATH}
 #SBATCH --output=${OUTPUT_DIR}/out/out_%A_%a.log
 #SBATCH --error=${OUTPUT_DIR}/err/err_%A_%a.log
 

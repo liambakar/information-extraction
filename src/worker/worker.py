@@ -3,7 +3,6 @@ import os
 import sys
 
 from src.worker.resume_lib import (
-    DEFAULT_DATASET_PATH,
     DEFAULT_OUTPUT_PATH,
     claim_next_row,
     complete_row,
@@ -33,7 +32,7 @@ def log_error(worker_id, message):
 
 def main():
     worker_id = determine_worker_id()
-    dataset_path = os.environ.get('DATASET_PATH', DEFAULT_DATASET_PATH)
+    dataset_path = os.environ.get('DATASET_PATH')
     output_path = os.environ.get('OUTPUT_PATH', DEFAULT_OUTPUT_PATH)
     lock_path = os.environ.get('LOCK_PATH') or None
     template_path = os.environ.get(

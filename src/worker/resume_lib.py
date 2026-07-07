@@ -13,7 +13,6 @@ except ImportError:
         from file_lock import exclusive_lock, resolve_lock_path
 
 
-DEFAULT_DATASET_PATH = 'datasets/preprocessed_dataset_claude_5_tones.jsonl'
 DEFAULT_OUTPUT_PATH = 'out/nuextract3_outputs.jsonl'
 NO_WORK_EXIT_CODE = 2
 OUTPUT_FIELDS = (

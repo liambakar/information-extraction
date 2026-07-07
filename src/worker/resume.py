@@ -2,7 +2,6 @@ import argparse
 import sys
 
 from resume_lib import (
-    DEFAULT_DATASET_PATH,
     DEFAULT_OUTPUT_PATH,
     reset_all_rows,
     reset_incomplete_rows,
@@ -34,7 +33,7 @@ def parse_args():
 
 
 def add_dataset_args(parser):
-    parser.add_argument('--dataset_path', default=DEFAULT_DATASET_PATH)
+    parser.add_argument('--dataset_path', required=True)
     parser.add_argument(
         '--lock_path',
         default=None,
