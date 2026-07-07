@@ -1,8 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-if [[ "$#" -lt 3 ]]; then
-    echo "Usage: $0 RUN_NAME OUTPUT_DIR NUM_WORKERS [--reset-scratch]" >&2
+if [[ "$#" -lt 4 ]]; then
+    echo "Usage: $0 RUN_NAME OUTPUT_DIR NUM_WORKERS DATASET_PATH [--reset-scratch]" >&2
     exit 1
 fi
 
@@ -24,12 +24,17 @@ if ! [[ "$NUM_WORKERS" =~ ^[1-9][0-9]*$ ]]; then
     exit 1
 fi
 
-mkdir -p "$OUTPUT_DIR"
-mkdir -p ${OUTPUT_DIR}/out
-mkdir -p ${OUTPUT_DIR}/err
+if [[ -z "$DATASET_PATH" ]]; then
+    echo "DATASET_PATH must be provided as the fourth argument." >&2
+    exit 1
+fi
 
-rm -rf ${OUTPUT_DIR}/out/*.log
-rm -rf ${OUTPUT_DIR}/err/*.log
+mkdir -p "$OUTPUT_DIR"
+mkdir -p "${OUTPUT_DIR}/out"
+mkdir -p "${OUTPUT_DIR}/err"
+
+rm -rf "${OUTPUT_DIR}"/out/*.log
+rm -rf "${OUTPUT_DIR}"/err/*.log
 
 
 MAX_ARRAY_INDEX=$((NUM_WORKERS - 1))
@@ -38,10 +43,10 @@ MAX_ARRAY_INDEX=$((NUM_WORKERS - 1))
 # On requeue, per-worker release_worker_claims() handles recovery per worker
 if [[ "$RESET_SCRATCH" == "true" ]]; then
     echo "Resetting from scratch (full wipe)..."
-    python3 src/worker/resume.py reset-scratch --dataset_path $DATASET_PATH
+    python3 src/worker/resume.py reset-scratch --dataset_path "$DATASET_PATH"
 else
     echo "Resetting incomplete rows (entrypoint)..."
-    bash scripts/reset_entrypoint.sh
+    bash scripts/reset_entrypoint.sh "$DATASET_PATH"
 fi
 
 sbatch <<EOT

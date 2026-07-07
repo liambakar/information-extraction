@@ -15,6 +15,8 @@ from unittest.mock import Mock, patch
 REPO_ROOT = Path(__file__).resolve().parents[1]
 MINI_DATASET_PATH = REPO_ROOT / 'datasets' / 'mini_dataset.jsonl'
 RESUME_SCRIPT_PATH = REPO_ROOT / 'src' / 'worker' / 'resume.py'
+RESET_ENTRYPOINT_PATH = REPO_ROOT / 'scripts' / 'reset_entrypoint.sh'
+SUBMIT_JOB_PATH = REPO_ROOT / 'scripts' / 'submit_extraction_job.sh'
 
 
 def read_jsonl(path):
@@ -203,6 +205,48 @@ def wait_for_claimed_rows(dataset_path, minimum_count, timeout=5):
 
 
 class DummyNuExtractWorkflowTest(unittest.TestCase):
+    def test_submit_job_requires_dataset_path_argument(self):
+        result = subprocess.run(
+            [
+                'bash',
+                str(SUBMIT_JOB_PATH),
+                'nuextract3_run',
+                'out/slurm_logs',
+                '8',
+            ],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('DATASET_PATH', result.stderr)
+
+    def test_reset_entrypoint_requires_dataset_path_argument(self):
+        result = subprocess.run(
+            ['bash', str(RESET_ENTRYPOINT_PATH)],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('DATASET_PATH', result.stderr)
+
+    def test_worker_fails_fast_without_dataset_path(self):
+        worker = import_worker_with_fake_dependencies()
+
+        with patch.dict(
+            'os.environ',
+            {'SLURM_ARRAY_TASK_ID': 'worker_1'},
+            clear=True,
+        ):
+            result = worker.main()
+
+        self.assertEqual(result, 1)
+
     def test_reset_all_then_worker_processes_mini_dataset_with_dummy_model(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_dir_path = Path(temp_dir)

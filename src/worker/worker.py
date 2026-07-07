@@ -44,6 +44,9 @@ def main():
     enable_thinking = parse_bool_env('ENABLE_THINKING', default=False)
 
     log(worker_id, 'starting up')
+    if not dataset_path:
+        log_error(worker_id, 'DATASET_PATH must be set by the job launcher.')
+        return 1
 
     released = release_worker_claims(dataset_path, worker_id, lock_path)
     log(worker_id, f'released {released} stuck claim(s)')
@@ -65,6 +68,7 @@ def main():
         max_new_tokens,
         enable_thinking,
     )
+    return 0
 
 
 def run_claim_loop(
@@ -106,4 +110,4 @@ def run_claim_loop(
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())
