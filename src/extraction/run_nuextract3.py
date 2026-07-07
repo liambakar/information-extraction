@@ -26,7 +26,7 @@ def parse_args():
 def load_model(model_id=DEFAULT_MODEL_ID):
     if not torch.cuda.is_available():
         raise RuntimeError('CUDA is required to run NuExtract3 with this script.')
-
+    print('load_model cuda is available', flush=True)
     processor = AutoProcessor.from_pretrained(
         model_id,
         trust_remote_code=True,
@@ -65,7 +65,7 @@ def run_extraction(
             ],
         }
     ]
-
+    print('run_extraction model device', model.device, flush=True)
     inputs = processor.apply_chat_template(
         messages,
         add_generation_prompt=True,
@@ -106,7 +106,7 @@ def main():
         max_new_tokens=args.max_new_tokens,
         enable_thinking=args.enable_thinking,
     )
-    print(output)
+    print(output, flush=True)
     return output
 
 

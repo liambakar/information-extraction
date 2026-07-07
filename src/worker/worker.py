@@ -31,6 +31,7 @@ def log_error(worker_id, message):
 
 def main():
     worker_id = determine_worker_id()
+    print(f'Starting worker job with worker {worker_id}.', flush=True)
     dataset_path = os.environ.get('DATASET_PATH')
     processed_data_path = os.environ.get('PROCESSED_DATA_PATH')
     lock_path = os.environ.get('LOCK_PATH') or None
