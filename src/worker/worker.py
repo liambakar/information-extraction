@@ -3,7 +3,6 @@ import os
 import sys
 
 from src.worker.resume_lib import (
-    DEFAULT_OUTPUT_PATH,
     claim_next_row,
     complete_row,
     release_worker_claims,
@@ -33,7 +32,7 @@ def log_error(worker_id, message):
 def main():
     worker_id = determine_worker_id()
     dataset_path = os.environ.get('DATASET_PATH')
-    output_path = os.environ.get('OUTPUT_PATH', DEFAULT_OUTPUT_PATH)
+    processed_data_path = os.environ.get('PROCESSED_DATA_PATH')
     lock_path = os.environ.get('LOCK_PATH') or None
     template_path = os.environ.get(
         'TEMPLATE_PATH', 'extraction_templates/template.json'
@@ -47,6 +46,9 @@ def main():
     if not dataset_path:
         log_error(worker_id, 'DATASET_PATH must be set by the job launcher.')
         return 1
+    if not processed_data_path:
+        log_error(worker_id, 'PROCESSED_DATA_PATH must be set by the job launcher.')
+        return 1
 
     released = release_worker_claims(dataset_path, worker_id, lock_path)
     log(worker_id, f'released {released} stuck claim(s)')
@@ -58,7 +60,7 @@ def main():
 
     run_claim_loop(
         dataset_path,
-        output_path,
+        processed_data_path,
         lock_path,
         worker_id,
         processor,
@@ -73,7 +75,7 @@ def main():
 
 def run_claim_loop(
     dataset_path,
-    output_path,
+    processed_data_path,
     lock_path,
     worker_id,
     processor,
@@ -102,7 +104,13 @@ def run_claim_loop(
                 enable_thinking=enable_thinking,
             )
             extraction = json.loads(extraction_text)
-            complete_row(dataset_path, output_path, index, extraction, lock_path)
+            complete_row(
+                dataset_path,
+                processed_data_path,
+                index,
+                extraction,
+                lock_path,
+            )
             log(worker_id, f'completed index={index}')
         except Exception as exc:
             log_error(worker_id, f'failed index={index}: {exc}')

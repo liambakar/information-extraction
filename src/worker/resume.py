@@ -2,7 +2,6 @@ import argparse
 import sys
 
 from resume_lib import (
-    DEFAULT_OUTPUT_PATH,
     reset_all_rows,
     reset_incomplete_rows,
 )
@@ -27,7 +26,7 @@ def parse_args():
         ),
     )
     add_dataset_args(reset_scratch_parser)
-    reset_scratch_parser.add_argument('--output_path', default=DEFAULT_OUTPUT_PATH)
+    reset_scratch_parser.add_argument('--processed_data_path', required=True)
 
     return parser.parse_args()
 
@@ -53,10 +52,13 @@ def run_reset_all(args):
 def run_reset_scratch(args):
     count = reset_all_rows(
         dataset_path=args.dataset_path,
-        output_path=args.output_path,
+        output_path=args.processed_data_path,
         lock_path=args.lock_path,
     )
-    print(f'Reset {count} rows and cleared output at {args.output_path}')
+    print(
+        f'Reset {count} rows and cleared processed data at '
+        f'{args.processed_data_path}'
+    )
     return 0
 
 

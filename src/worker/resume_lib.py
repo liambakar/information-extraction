@@ -13,7 +13,6 @@ except ImportError:
         from file_lock import exclusive_lock, resolve_lock_path
 
 
-DEFAULT_OUTPUT_PATH = 'out/nuextract3_outputs.jsonl'
 NO_WORK_EXIT_CODE = 2
 OUTPUT_FIELDS = (
     'index',

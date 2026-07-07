@@ -96,7 +96,7 @@ def run_dummy_worker_process(worker_id, dataset_path, output_path, lock_path):
 
     environment = {
         'DATASET_PATH': str(dataset_path),
-        'OUTPUT_PATH': str(output_path),
+        'PROCESSED_DATA_PATH': str(output_path),
         'LOCK_PATH': str(lock_path),
         'SLURM_ARRAY_TASK_ID': str(worker_id),
         'MODEL_ID': 'dummy-nuextract',
@@ -132,7 +132,7 @@ def run_crashing_worker_process(worker_id, dataset_path, output_path, lock_path)
 
     environment = {
         'DATASET_PATH': str(dataset_path),
-        'OUTPUT_PATH': str(output_path),
+        'PROCESSED_DATA_PATH': str(output_path),
         'LOCK_PATH': str(lock_path),
         'SLURM_ARRAY_TASK_ID': str(worker_id),
         'MODEL_ID': 'dummy-nuextract',
@@ -223,6 +223,25 @@ class DummyNuExtractWorkflowTest(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('DATASET_PATH', result.stderr)
 
+    def test_submit_job_requires_processed_data_path_argument(self):
+        result = subprocess.run(
+            [
+                'bash',
+                str(SUBMIT_JOB_PATH),
+                'nuextract3_run',
+                'out/slurm_logs',
+                '8',
+                'datasets/preprocessed_dataset_claude_5_tones.jsonl',
+            ],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('PROCESSED_DATA_PATH', result.stderr)
+
     def test_reset_entrypoint_requires_dataset_path_argument(self):
         result = subprocess.run(
             ['bash', str(RESET_ENTRYPOINT_PATH)],
@@ -241,6 +260,21 @@ class DummyNuExtractWorkflowTest(unittest.TestCase):
         with patch.dict(
             'os.environ',
             {'SLURM_ARRAY_TASK_ID': 'worker_1'},
+            clear=True,
+        ):
+            result = worker.main()
+
+        self.assertEqual(result, 1)
+
+    def test_worker_fails_fast_without_processed_data_path(self):
+        worker = import_worker_with_fake_dependencies()
+
+        with patch.dict(
+            'os.environ',
+            {
+                'DATASET_PATH': 'datasets/preprocessed_dataset_claude_5_tones.jsonl',
+                'SLURM_ARRAY_TASK_ID': 'worker_1',
+            },
             clear=True,
         ):
             result = worker.main()
@@ -296,7 +330,7 @@ class DummyNuExtractWorkflowTest(unittest.TestCase):
 
             environment = {
                 'DATASET_PATH': str(dataset_path),
-                'OUTPUT_PATH': str(output_path),
+                'PROCESSED_DATA_PATH': str(output_path),
                 'LOCK_PATH': str(lock_path),
                 'SLURM_ARRAY_TASK_ID': 'worker_1',
                 'MODEL_ID': 'dummy-nuextract',
