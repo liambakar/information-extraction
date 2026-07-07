@@ -11,6 +11,7 @@ OUTPUT_DIR=$2
 NUM_WORKERS=$3
 RESET_SCRATCH=false
 
+
 for arg in "${@:4}"; do
     if [[ "$arg" == "--reset-scratch" ]]; then
         RESET_SCRATCH=true
@@ -23,6 +24,12 @@ if ! [[ "$NUM_WORKERS" =~ ^[1-9][0-9]*$ ]]; then
 fi
 
 mkdir -p "$OUTPUT_DIR"
+mkdir -p ${OUTPUT_DIR}/out
+mkdir -p ${OUTPUT_DIR}/err
+
+rm -rf ${OUTPUT_DIR}/out/*.log
+rm -rf ${OUTPUT_DIR}/err/*.log
+
 
 MAX_ARRAY_INDEX=$((NUM_WORKERS - 1))
 
@@ -57,8 +64,8 @@ sbatch <<EOT
 #SBATCH --open-mode=append
 #SBATCH --chdir=/mmfs1/gscratch/ubicomp/lbakar/information-extraction
 #SBATCH --export=all,RUN_NAME=${RUN_NAME},OUTPUT_DIR=${OUTPUT_DIR}
-#SBATCH --output=${OUTPUT_DIR}/out_%A_%a.log
-#SBATCH --error=${OUTPUT_DIR}/err_%A_%a.log
+#SBATCH --output=${OUTPUT_DIR}/out/out_%A_%a.log
+#SBATCH --error=${OUTPUT_DIR}/err/err_%A_%a.log
 
 ./scripts/batch_extraction.sh
 

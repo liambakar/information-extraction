@@ -14,8 +14,9 @@ echo "======================================"
 # ----------------------------
 # Environment setup
 # ----------------------------
-source /gscratch/ubicomp/lbakar/miniconda/etc/profile.d/conda.sh
+source /gscratch/ubicomp/lbakar/miniconda3/etc/profile.d/conda.sh
 conda activate genome
+source /gscratch/ubicomp/lbakar/information-extraction/setup_env.sh
 
 # ----------------------------
 # Debug GPU state

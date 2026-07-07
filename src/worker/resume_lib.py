@@ -113,17 +113,23 @@ def release_worker_claims(dataset_path, worker_id, lock_path=None):
 
 def reset_incomplete_rows(dataset_path, lock_path=None):
     lock_path = resolve_lock_path(dataset_path, lock_path)
-
+    print('getting lock')
+    print('lock path: ', lock_path)
     with exclusive_lock(lock_path):
+        print('opened lock')
         rows = read_jsonl(dataset_path)
+        print('read jsonl')
         count = 0
         for row in rows:
+            print('row: ', row)
             if row.get('read') is True and row.get('processed') is not True:
                 row['read'] = False
                 row.pop('claimed_by', None)
                 row.pop('claimed_at', None)
                 count += 1
+        print('reset the rows')
         write_jsonl_atomic(dataset_path, rows)
+        print('file written')
         return count
 
 
