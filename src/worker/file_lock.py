@@ -1,10 +1,9 @@
+import fcntl
 import json
 import os
+import shutil
 import time
 from contextlib import contextmanager
-
-
-LOCK_POLL_SECONDS = 0.1
 
 
 def resolve_lock_path(dataset_path, lock_path):
@@ -16,47 +15,48 @@ def resolve_lock_path(dataset_path, lock_path):
 
 @contextmanager
 def exclusive_lock(lock_path):
-    acquire_lock(lock_path)
-    try:
-        yield
-    finally:
-        try:
-            remove_lock(lock_path)
-        except FileNotFoundError:
-            pass
-
-
-def acquire_lock(lock_path):
     directory = os.path.dirname(lock_path) or '.'
     os.makedirs(directory, exist_ok=True)
+    cleanup_legacy_lock_directory(lock_path)
 
-    while True:
+    with open(lock_path, 'a+') as lock_file:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        write_lock_owner(lock_file)
         try:
-            os.mkdir(lock_path)
-            write_lock_owner(lock_path)
-            return
-        except FileExistsError:
-            time.sleep(LOCK_POLL_SECONDS)
+            yield
+        finally:
+            try:
+                clear_lock_owner(lock_file)
+            finally:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
 
-def write_lock_owner(lock_path):
-    owner_path = os.path.join(lock_path, 'owner.json')
+def cleanup_legacy_lock_directory(lock_path):
+    if not os.path.isdir(lock_path):
+        return
+
+    try:
+        shutil.rmtree(lock_path)
+    except FileNotFoundError:
+        pass
+
+
+def write_lock_owner(lock_file):
     owner = {
         'pid': os.getpid(),
         'created_at': time.time(),
     }
 
-    with open(owner_path, 'w') as owner_file:
-        json.dump(owner, owner_file)
+    lock_file.seek(0)
+    lock_file.truncate()
+    json.dump(owner, lock_file)
+    lock_file.write('\n')
+    lock_file.flush()
+    os.fsync(lock_file.fileno())
 
 
-def remove_lock(lock_path):
-    if os.path.isdir(lock_path):
-        owner_path = os.path.join(lock_path, 'owner.json')
-        try:
-            os.unlink(owner_path)
-        except FileNotFoundError:
-            pass
-        os.rmdir(lock_path)
-    else:
-        os.unlink(lock_path)
+def clear_lock_owner(lock_file):
+    lock_file.seek(0)
+    lock_file.truncate()
+    lock_file.flush()
+    os.fsync(lock_file.fileno())

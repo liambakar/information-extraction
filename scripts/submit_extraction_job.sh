@@ -79,7 +79,5 @@ sbatch <<EOT
 #SBATCH --output=${OUTPUT_DIR}/out/out_%A_%a.log
 #SBATCH --error=${OUTPUT_DIR}/err/err_%A_%a.log
 
-./scripts/batch_extraction.sh
-
-exit 0
+exec ./scripts/batch_extraction.sh
 EOT

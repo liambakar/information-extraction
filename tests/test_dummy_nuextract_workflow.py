@@ -13,7 +13,7 @@ from unittest.mock import Mock, patch
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-MINI_DATASET_PATH = REPO_ROOT / 'datasets' / 'mini_dataset.jsonl'
+MINI_DATASET_PATH = REPO_ROOT / 'datasets' / 'preprocessed_mini_dataset.jsonl'
 RESUME_SCRIPT_PATH = REPO_ROOT / 'src' / 'worker' / 'resume.py'
 RESET_ENTRYPOINT_PATH = REPO_ROOT / 'scripts' / 'reset_entrypoint.sh'
 SUBMIT_JOB_PATH = REPO_ROOT / 'scripts' / 'submit_extraction_job.sh'
@@ -204,7 +204,194 @@ def wait_for_claimed_rows(dataset_path, minimum_count, timeout=5):
     raise AssertionError(f'Timed out waiting for {minimum_count} claimed rows')
 
 
+def wait_for_path(path, timeout=5):
+    path = Path(path)
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if path.exists():
+            return
+        time.sleep(0.01)
+
+    raise AssertionError(f'Timed out waiting for {path}')
+
+
+def hold_lock_until_released(lock_path, ready_path, release_path):
+    from src.worker.file_lock import exclusive_lock
+
+    with exclusive_lock(str(lock_path)):
+        Path(ready_path).write_text('ready')
+        deadline = time.time() + 10
+        while not Path(release_path).exists() and time.time() < deadline:
+            time.sleep(0.01)
+
+    return 0
+
+
+def acquire_lock_and_write(lock_path, acquired_path):
+    from src.worker.file_lock import exclusive_lock
+
+    with exclusive_lock(str(lock_path)):
+        Path(acquired_path).write_text('acquired')
+
+    return 0
+
+
+def acquire_lock_and_die(lock_path, ready_path):
+    from src.worker.file_lock import exclusive_lock
+
+    with exclusive_lock(str(lock_path)):
+        Path(ready_path).write_text('ready')
+        os._exit(23)
+
+    return 0
+
+
 class DummyNuExtractWorkflowTest(unittest.TestCase):
+    def test_file_lock_blocks_other_processes_until_released(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_dir_path = Path(temp_dir)
+            lock_path = temp_dir_path / 'dataset.lock'
+            ready_path = temp_dir_path / 'ready'
+            release_path = temp_dir_path / 'release'
+            acquired_path = temp_dir_path / 'acquired'
+            holder_stdout = ''
+            holder_stderr = ''
+            contender_stdout = ''
+            contender_stderr = ''
+            contender = None
+
+            holder = subprocess.Popen(
+                build_helper_command(
+                    'hold_lock_until_released',
+                    lock_path,
+                    ready_path,
+                    release_path,
+                ),
+                cwd=REPO_ROOT,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            try:
+                wait_for_path(ready_path)
+                contender = subprocess.Popen(
+                    build_helper_command(
+                        'acquire_lock_and_write',
+                        lock_path,
+                        acquired_path,
+                    ),
+                    cwd=REPO_ROOT,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                )
+                time.sleep(0.2)
+                self.assertFalse(acquired_path.exists())
+
+                release_path.write_text('release')
+                holder_stdout, holder_stderr = holder.communicate(timeout=5)
+                contender_stdout, contender_stderr = contender.communicate(timeout=5)
+            finally:
+                release_path.write_text('release')
+                if holder.poll() is None:
+                    holder.terminate()
+                    holder.communicate(timeout=5)
+                if contender is not None and contender.poll() is None:
+                    contender.terminate()
+                    contender.communicate(timeout=5)
+
+            self.assertEqual(
+                holder.returncode,
+                0,
+                f'holder failed\nstdout:\n{holder_stdout}\nstderr:\n{holder_stderr}',
+            )
+            self.assertEqual(
+                contender.returncode,
+                0,
+                (
+                    'contender failed\n'
+                    f'stdout:\n{contender_stdout}\nstderr:\n{contender_stderr}'
+                ),
+            )
+            self.assertTrue(acquired_path.exists())
+            self.assertTrue(lock_path.is_file())
+
+    def test_file_lock_releases_when_process_dies(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_dir_path = Path(temp_dir)
+            lock_path = temp_dir_path / 'dataset.lock'
+            ready_path = temp_dir_path / 'ready'
+            acquired_path = temp_dir_path / 'acquired'
+
+            process = subprocess.Popen(
+                build_helper_command('acquire_lock_and_die', lock_path, ready_path),
+                cwd=REPO_ROOT,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            wait_for_path(ready_path)
+            stdout, stderr = process.communicate(timeout=5)
+            self.assertEqual(
+                process.returncode,
+                23,
+                f'crash process failed unexpectedly\nstdout:\n{stdout}\nstderr:\n{stderr}',
+            )
+
+            result = subprocess.run(
+                build_helper_command('acquire_lock_and_write', lock_path, acquired_path),
+                cwd=REPO_ROOT,
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=False,
+            )
+
+            self.assertEqual(
+                result.returncode,
+                0,
+                (
+                    'lock was not reacquired after process death\n'
+                    f'stdout:\n{result.stdout}\nstderr:\n{result.stderr}'
+                ),
+            )
+            self.assertTrue(acquired_path.exists())
+            self.assertTrue(lock_path.is_file())
+
+    def test_file_lock_converts_legacy_lock_directory(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_dir_path = Path(temp_dir)
+            lock_path = temp_dir_path / 'dataset.lock'
+            acquired_path = temp_dir_path / 'acquired'
+            lock_path.mkdir()
+            (lock_path / 'owner.json').write_text('{}')
+
+            result = subprocess.run(
+                build_helper_command('acquire_lock_and_write', lock_path, acquired_path),
+                cwd=REPO_ROOT,
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=False,
+            )
+
+            self.assertEqual(
+                result.returncode,
+                0,
+                (
+                    'legacy lock directory was not converted\n'
+                    f'stdout:\n{result.stdout}\nstderr:\n{result.stderr}'
+                ),
+            )
+            self.assertTrue(acquired_path.exists())
+            self.assertTrue(lock_path.is_file())
+
+    def test_submit_job_generated_script_preserves_batch_exit_code(self):
+        script = SUBMIT_JOB_PATH.read_text()
+
+        self.assertNotIn('\nexit 0\n', script)
+        self.assertIn('exec ./scripts/batch_extraction.sh', script)
+
     def test_submit_job_requires_dataset_path_argument(self):
         result = subprocess.run(
             [
