@@ -121,7 +121,7 @@ def main():
         'accelerator': 'gpu',
         'devices': config.hardware.devices,
         'num_nodes': config.hardware.num_nodes,
-        # 'strategy': DDPStrategy(find_unused_parameters=False),
+        'strategy': DDPStrategy(find_unused_parameters=False),
         'precision': 'bf16-mixed',
         'max_epochs': config.optimization.max_epochs,
         'accumulate_grad_batches': config.optimization.accumulate_grad_batches,
