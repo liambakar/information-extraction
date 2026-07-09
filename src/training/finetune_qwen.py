@@ -11,7 +11,7 @@ from lightning.pytorch.strategies import DDPStrategy
 
 from src.training.data.dataset import InstructionDataset
 from src.training.modules.callbacks import SaveHFModelCallback
-from src.training.modules.qwen_lightning_module import QwenFullFinetuneModule
+from src.training.modules.qwen_lightning_module import InfoExtractionModule
 from src.training.utils.config_parser import TrainConfig
 from src.training.utils.utils import build_logger, print_config
 
@@ -104,7 +104,7 @@ def main():
     )
 
     print(f'\n[LOG] Loading model: {MODEL_NAME}', flush=True)
-    model = QwenFullFinetuneModule(
+    model = InfoExtractionModule(
         model_name=MODEL_NAME,
         lr=config.optimization.lr,
         weight_decay=config.optimization.weight_decay,

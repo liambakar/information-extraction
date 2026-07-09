@@ -4,7 +4,7 @@ from transformers import AutoModelForCausalLM, get_cosine_schedule_with_warmup
 from lightning.pytorch.utilities.types import OptimizerLRScheduler
 
 
-class QwenFullFinetuneModule(L.LightningModule):
+class InfoExtractionModule(L.LightningModule):
     def __init__(
         self,
         model_name,
