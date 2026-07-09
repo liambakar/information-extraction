@@ -3,6 +3,8 @@ checkpoints/*
 .vscode
 out/
 .DS_STORE
+*.tmp
+*.lock
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -2,6 +2,8 @@ import json
 import wandb
 
 from lightning.pytorch.loggers import WandbLogger
+from lightning.pytorch.utilities import rank_zero_only
+
 
 from src.training.utils.config_parser import TrainConfig, WandbConfig
 
@@ -33,6 +35,7 @@ def build_logger(output_dir, wandb_config: WandbConfig) -> WandbLogger | None:
     return logger
 
 
+@rank_zero_only
 def print_config(config: TrainConfig, logger: WandbLogger | None) -> None:
     config_dict = config.model_dump() if hasattr(config, 'model_dump') else config
     config_string = json.dumps(config_dict, indent=4)
@@ -44,6 +47,8 @@ def print_config(config: TrainConfig, logger: WandbLogger | None) -> None:
     print(full_output, flush=True)
 
     if logger is not None:
+        logger.experiment.config.update(config_dict, allow_val_change=True)
+
         html_content = f"""
         <h3>Configuration File Run-Time</h3>
         <pre style="background-color: #f4f4f4; padding: 10px; border-radius: 5px; font-family: monospace;">
