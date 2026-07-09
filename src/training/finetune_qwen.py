@@ -2,6 +2,7 @@ import argparse
 from pathlib import Path
 
 import lightning as L
+import torch
 
 from torch.utils.data import DataLoader
 from transformers import AutoTokenizer
@@ -45,7 +46,6 @@ def main():
     )
     MODEL_NAME = config.model.model_name
 
-    L.seed_everything(42, workers=True)
 
     output_dir = Path(OUTPUT_DIR)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -53,6 +53,8 @@ def main():
     hf_dir = output_dir / 'hf'
 
     logger = build_logger(output_dir, config.wandb)
+
+    L.seed_everything(42, workers=True)
 
     print_config(config, logger)
 
@@ -142,6 +144,20 @@ def main():
     trainer = L.Trainer(**trainer_kwargs)
     print('Lightning trainer configured.', flush=True)
 
+    print(f'CUDA available: {torch.cuda.is_available()}', flush=True)
+    print(f'Visible CUDA GPUs: {torch.cuda.device_count()}', flush=True)
+
+    for i in range(torch.cuda.device_count()):
+        print(f'  GPU {i}: {torch.cuda.get_device_name(i)}', flush=True)
+
+    if trainer.global_rank == 0:
+        print(f'Lightning devices per node: {trainer.num_devices}', flush=True)
+        print(f'Lightning num nodes: {trainer.num_nodes}', flush=True)
+        print(
+            f'Total Lightning processes / world size: {trainer.num_devices * trainer.num_nodes}',
+            flush=True,
+        )
+
     ckpt_path = config.checkpointing.resume_from
 
     if ckpt_path == 'last':
@@ -149,7 +165,6 @@ def main():
 
     print(f'Resume checkpoint: {ckpt_path}', flush=True)
     print('Starting training.', flush=True)
-
     trainer.fit(
         model,
         train_dataloaders=train_loader,
