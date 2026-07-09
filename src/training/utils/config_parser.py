@@ -8,6 +8,7 @@ class DataConfig(BaseModel):
     output_directory: str
     extraction_template_path: str
     num_workers: int
+    max_rows: int
 
 
 class ModelConfig(BaseModel):

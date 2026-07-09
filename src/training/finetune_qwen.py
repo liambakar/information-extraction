@@ -4,7 +4,7 @@ from pathlib import Path
 import lightning as L
 import torch
 
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Subset
 from transformers import AutoTokenizer
 from lightning.pytorch.callbacks import ModelCheckpoint, LearningRateMonitor
 from lightning.pytorch.strategies import DDPStrategy
@@ -58,27 +58,33 @@ def main():
 
     print_config(config, logger)
 
-    print(f'Output directory: {output_dir}', flush=True)
-    print(f'Lightning checkpoint directory: {ckpt_dir}', flush=True)
-    print(f'Hugging Face export directory: {hf_dir}', flush=True)
-    print(f'\nLoading tokenizer: {MODEL_NAME}', flush=True)
+    print(f'[LOG] Output directory: {output_dir}', flush=True)
+    print(f'[LOG] Lightning checkpoint directory: {ckpt_dir}', flush=True)
+    print(f'[LOG] Hugging Face export directory: {hf_dir}', flush=True)
+    print(f'\n[LOG] Loading tokenizer: {MODEL_NAME}', flush=True)
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-    print(f'{MODEL_NAME} tokenizer loaded.', flush=True)
+    print(f'[LOG] {MODEL_NAME} tokenizer loaded.', flush=True)
 
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
         print(
-            'Tokenizer pad token was missing; using eos token as pad token.', flush=True
+            '[LOG] Tokenizer pad token was missing; using eos token as pad token.', flush=True
         )
 
-    print(f'\nLoading training dataset: {TRAIN_PATH}', flush=True)
+    print(f'\n[LOG] Loading training dataset: {TRAIN_PATH}', flush=True)
     train_ds = InstructionDataset(
         path=TRAIN_PATH,
         tokenizer=tokenizer,
         template_path=config.data.extraction_template_path,
         max_length=config.model.max_length,
     )
-    print(f'Training dataset loaded with {len(train_ds)} examples.', flush=True)
+    max_rows = config.data.max_rows
+    if max_rows > -1:
+        shuffled_indices = torch.randperm(len(train_ds)).tolist()
+        shuffled_indices = shuffled_indices[:max_rows]
+        train_ds = Subset(train_ds, shuffled_indices)
+
+    print(f'[LOG] Training dataset loaded with {len(train_ds)} examples.', flush=True)
 
     persistent_workers = NUM_WORKERS > 0
     train_loader = DataLoader(
@@ -90,21 +96,21 @@ def main():
         persistent_workers=persistent_workers,
     )
     print(
-        '\nTraining dataloader ready: '
+        '\n[LOG] Training dataloader ready: '
         f'  batch_size={config.optimization.batch_size}, '
         f'  num_workers={NUM_WORKERS}, '
         f'  persistent_workers={persistent_workers}',
         flush=True,
     )
 
-    print(f'\nLoading model: {MODEL_NAME}', flush=True)
+    print(f'\n[LOG] Loading model: {MODEL_NAME}', flush=True)
     model = QwenFullFinetuneModule(
         model_name=MODEL_NAME,
         lr=config.optimization.lr,
         weight_decay=config.optimization.weight_decay,
         warmup_steps=config.optimization.warmup_steps,
     )
-    print(f'{MODEL_NAME} model loaded.', flush=True)
+    print(f'[LOG] {MODEL_NAME} model loaded.', flush=True)
 
     # Store tokenizer only for final HF export.
     model.tokenizer = tokenizer
@@ -140,21 +146,21 @@ def main():
     if logger is not None:
         trainer_kwargs['logger'] = logger
 
-    print('Configuring Lightning trainer.', flush=True)
+    print('[LOG] Configuring Lightning trainer.', flush=True)
     trainer = L.Trainer(**trainer_kwargs)
-    print('Lightning trainer configured.', flush=True)
+    print('[LOG] Lightning trainer configured.', flush=True)
 
-    print(f'CUDA available: {torch.cuda.is_available()}', flush=True)
-    print(f'Visible CUDA GPUs: {torch.cuda.device_count()}', flush=True)
+    print(f'[LOG] CUDA available: {torch.cuda.is_available()}', flush=True)
+    print(f'[LOG] Visible CUDA GPUs: {torch.cuda.device_count()}', flush=True)
 
     for i in range(torch.cuda.device_count()):
-        print(f'  GPU {i}: {torch.cuda.get_device_name(i)}', flush=True)
+        print(f'       GPU {i}: {torch.cuda.get_device_name(i)}', flush=True)
 
     if trainer.global_rank == 0:
-        print(f'Lightning devices per node: {trainer.num_devices}', flush=True)
-        print(f'Lightning num nodes: {trainer.num_nodes}', flush=True)
+        print(f'[LOG] Lightning devices per node: {trainer.num_devices}', flush=True)
+        print(f'[LOG] Lightning num nodes: {trainer.num_nodes}', flush=True)
         print(
-            f'Total Lightning processes / world size: {trainer.num_devices * trainer.num_nodes}',
+            f'[LOG] Total Lightning processes / world size: {trainer.num_devices * trainer.num_nodes}',
             flush=True,
         )
 
@@ -163,16 +169,20 @@ def main():
     if ckpt_path == 'last':
         ckpt_path = str(ckpt_dir / 'last.ckpt')
 
-    print(f'Resume checkpoint: {ckpt_path}', flush=True)
-    print('Starting training.', flush=True)
+    print('[LOG] Setting model to train mode.', flush=True)
+    model.train()
+    model.model.train()
+
+    print(f'[LOG] Resume checkpoint: {ckpt_path}', flush=True)
+    print('[LOG] Starting training...', flush=True)
     trainer.fit(
         model,
         train_dataloaders=train_loader,
         ckpt_path=ckpt_path,
     )
 
-    print('Training completed.', flush=True)
-    print(f'Final Hugging Face model export path: {hf_dir / "final"}', flush=True)
+    print('[LOG] Training completed! 🥳', flush=True)
+    print(f'[LOG] Final Hugging Face model export path: {hf_dir / "final"}', flush=True)
 
 
 if __name__ == '__main__':

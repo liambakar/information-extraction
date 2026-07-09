@@ -3,19 +3,20 @@
         "training_dataset_path": "datasets/40_nuextract3_outputs.jsonl",
         "output_directory": "out/training",
         "extraction_template_path": "extraction_templates/template.json",
-        "num_workers": 8
+        "num_workers": 1,
+        "max_rows": 1000
     },
     "model": {
         "model_name": "Qwen/Qwen3-0.6B",
-        "max_length": 2048
+        "max_length": 512
     },
     "optimization": {
         "lr": 0.00001,
         "weight_decay": 0.01,
         "warmup_steps": 100,
-        "batch_size": 1,
+        "batch_size": 16,
         "accumulate_grad_batches": 8,
-        "max_epochs": 3
+        "max_epochs": 5
     },
     "hardware": {
         "devices": "auto",
