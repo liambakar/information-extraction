@@ -2,6 +2,7 @@ checkpoints/*
 !checkpoints/readme.md
 .vscode
 out/
+.DS_STORE
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
