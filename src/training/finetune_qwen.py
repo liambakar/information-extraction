@@ -11,7 +11,7 @@ from lightning.pytorch.strategies import DDPStrategy
 
 from src.training.data.dataset import InstructionDataset
 from src.training.modules.callbacks import SaveHFModelCallback
-from src.training.modules.qwen_lightning_module import InfoExtractionModule
+from src.training.modules.info_extraction_lightning_module import InfoExtractionModule
 from src.training.utils.config_parser import TrainConfig
 from src.training.utils.utils import build_logger, print_config
 
@@ -19,10 +19,10 @@ from src.training.utils.utils import build_logger, print_config
 def parse_args():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--config_file', type=str, required=True)
+    parser.add_argument('--config_file', '--config', type=str, required=True)
+    parser.add_argument('--run_name', type=str)
     parser.add_argument('--train_path', type=str)
     parser.add_argument('--output_dir', type=str)
-    parser.add_argument('--num_workers', type=int)
 
     return parser.parse_args()
 
@@ -30,22 +30,18 @@ def parse_args():
 def main():
     args = parse_args()
 
-    config = TrainConfig(args.config_file)
+    config = TrainConfig(args.config)
 
     TRAIN_PATH = (
-        config.data.training_dataset_path
-        if args.train_path is None
-        else args.train_path
+        args.train_path if args.train_path else config.data.training_dataset_path
     )
 
-    OUTPUT_DIR = (
-        config.data.output_directory if args.output_dir is None else args.output_dir
-    )
-    NUM_WORKERS = (
-        config.data.num_workers if args.num_workers is None else args.num_workers
-    )
+    OUTPUT_DIR = args.output_dir if args.output_dir else config.data.output_directory
+    NUM_WORKERS = config.data.num_workers
     MODEL_NAME = config.model.model_name
 
+    if args.run_name:
+        config.wandb.run_name = args.run_name
 
     output_dir = Path(OUTPUT_DIR)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -68,7 +64,8 @@ def main():
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
         print(
-            '[LOG] Tokenizer pad token was missing; using eos token as pad token.', flush=True
+            '[LOG] Tokenizer pad token was missing; using eos token as pad token.',
+            flush=True,
         )
 
     print(f'\n[LOG] Loading training dataset: {TRAIN_PATH}', flush=True)
