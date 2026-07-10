@@ -31,7 +31,7 @@ def parse_args():
 def main():
     args = parse_args()
 
-    config = TrainConfig(args.config)
+    config = TrainConfig(args.config_file)
 
     TRAIN_PATH = (
         args.train_path if args.train_path else config.data.training_dataset_path

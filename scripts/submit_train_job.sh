@@ -4,7 +4,7 @@ EXP_CFG=$1
 RUN_NAME=$2
 OUTPUT_DIR=$3
 
-mkdir -p $OUTPUT_DIR
+mkdir -p "$OUTPUT_DIR"
 
 sbatch <<EOT
 #!/bin/bash
@@ -29,7 +29,7 @@ sbatch <<EOT
 #SBATCH --error=${OUTPUT_DIR}/err.log
 
 # Run training
-./scripts/start_training.sh ${EXP_CFG} ${RUN_NAME} ${OUTPUT_DIR}
+./scripts/start_training.sh "${EXP_CFG}" "${RUN_NAME}" "${OUTPUT_DIR}"
 
 exit 0
 EOT
