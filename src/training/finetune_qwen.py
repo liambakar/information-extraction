@@ -12,6 +12,7 @@ from lightning.pytorch.strategies import DDPStrategy
 from src.training.data.dataset import InstructionDataset
 from src.training.modules.callbacks import SaveHFModelCallback
 from src.training.modules.info_extraction_lightning_module import InfoExtractionModule
+from src.training.utils.checkpointing import resolve_checkpointing
 from src.training.utils.config_parser import TrainConfig
 from src.training.utils.utils import build_logger, print_config
 
@@ -45,7 +46,12 @@ def main():
 
     output_dir = Path(OUTPUT_DIR)
     output_dir.mkdir(parents=True, exist_ok=True)
-    ckpt_dir = output_dir / 'checkpoints'
+    checkpointing = resolve_checkpointing(
+        output_dir=output_dir,
+        run_name=config.wandb.run_name,
+        resume_from=config.checkpointing.resume_from,
+    )
+    ckpt_dir = checkpointing.checkpoint_dir
     hf_dir = output_dir / 'hf'
 
     logger = build_logger(output_dir, config.wandb)
@@ -161,15 +167,13 @@ def main():
             flush=True,
         )
 
-    ckpt_path = config.checkpointing.resume_from
-
-    if ckpt_path == 'last':
-        ckpt_path = str(ckpt_dir / 'last.ckpt')
+    ckpt_path = checkpointing.resume_path
 
     print('[LOG] Setting model to train mode.', flush=True)
     model.train()
     model.model.train()
 
+    print(f'[LOG] Resume decision: {checkpointing.message}', flush=True)
     print(f'[LOG] Resume checkpoint: {ckpt_path}', flush=True)
     print('[LOG] Starting training...', flush=True)
     trainer.fit(
