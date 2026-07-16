@@ -2,6 +2,14 @@ import json
 
 from torch.utils.data import Dataset
 
+USER_START_SEQ = '<|im_start|>user\n'
+START_SEQ = '<|im_start|>'
+ASSISTANT_START_SEQ = '<|im_start|>assistant\n'
+TEMPLATE_START_SEQ = '<|im_start|>template\n'
+END_SEQ = '<|im_end|>\n'
+THINKING_START_SEQ = '<think>'
+THINKING_END_SEQ = '</think>'
+
 
 class InstructionDataset(Dataset):
     def __init__(
@@ -38,6 +46,9 @@ class InstructionDataset(Dataset):
 
         return json.dumps(value, indent=4, ensure_ascii=False)
 
+    def _format_message(self, role: str, content: str) -> str:
+        return f'{START_SEQ}{role}\n{content}\n{END_SEQ}'
+
     def _build_instruction(self, row):
         if 'instruction' in row:
             return row['instruction']
@@ -49,33 +60,25 @@ class InstructionDataset(Dataset):
 
         template = self._format_json(self.template)
 
-        return (
-            f'<|input|>\n'
-            f'### Template:\n{template}\n'
-            f'### Text:\n{row["utterance"]}\n\n'
-            f'<|output|>'
+        instruction = (
+            self._format_message('template', template)
+            + self._format_message('user', row['utterance'])
+            + START_SEQ
+            + 'assistant'
+            + '\n'
         )
+        return instruction
 
     def _build_response(self, row):
         if 'response' in row:
-            return self._format_json(row['response'])
+            return self._format_json(row['response']) + '\n' + END_SEQ
 
-        return self._format_json(row['extraction'])
+        return self._format_json(row['extraction']) + '\n' + END_SEQ
 
     def __getitem__(self, idx):
         row = self.rows[idx]
 
-        messages = [
-            {'role': 'user', 'content': self._build_instruction(row)},
-            {'role': 'assistant', 'content': self._build_response(row)},
-        ]
-
-        text = self.tokenizer.apply_chat_template(
-            messages,
-            tokenize=False,
-            add_generation_prompt=False,
-            enable_thinking=False,
-        )
+        text = self._build_instruction(row) + self._build_response(row)
 
         encoded = self.tokenizer(
             text,
