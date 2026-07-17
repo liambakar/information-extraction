@@ -6,6 +6,9 @@ out/
 *.tmp
 *.lock
 
+datasets/*
+!datasets/README.md
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

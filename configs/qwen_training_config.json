@@ -1,6 +1,6 @@
 {
     "data": {
-        "training_dataset_path": "datasets/40_nuextract3_outputs.jsonl",
+        "training_dataset_path": "datasets/nuextract3_outputs.jsonl",
         "output_directory": "out/training",
         "extraction_template_path": "extraction_templates/template.json",
         "num_workers": 1,

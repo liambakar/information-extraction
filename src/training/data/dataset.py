@@ -77,8 +77,9 @@ class InstructionDataset(Dataset):
 
     def __getitem__(self, idx):
         row = self.rows[idx]
-
-        text = self._build_instruction(row) + self._build_response(row)
+        instruction = self._build_instruction(row)
+        response = self._build_response(row)
+        text = instruction + response
 
         encoded = self.tokenizer(
             text,
@@ -91,7 +92,21 @@ class InstructionDataset(Dataset):
         input_ids = encoded['input_ids'].squeeze(0)
         attention_mask = encoded['attention_mask'].squeeze(0)
 
+        encoded_instructions = self.tokenizer(
+            instruction,
+            add_special_tokens=False,
+            truncation=True,
+            max_length=self.max_length,
+        )
+        encoded_instruction_ids = encoded_instructions['input_ids']
+
         labels = input_ids.clone()
+
+        # mask the template and user utterance and assistant prefix
+        instruction_length = min(len(encoded_instruction_ids), self.max_length)
+        labels[:instruction_length] = -100
+
+        # mask the padding
         labels[attention_mask == 0] = -100
 
         return {

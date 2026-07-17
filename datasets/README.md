@@ -1,0 +1,4 @@
+You can find all the datasets in the drive at:
+* [classification_dataset_claude_5_tones.jsonl](https://drive.google.com/file/d/1w_7VT5PEMwUPf8971evcU96U1rjQu_S_/view?usp=drive_link): The claude-generated utterances using personas. This contains 5 versions of each of the 25k generated utterances.
+* [preprocessed_dataset_claude_5_tones.jsonl](https://drive.google.com/file/d/1lwh7zpeYlcpajN4-CDh_PDgJonqBGj6F/view?usp=drive_link): This is the preprocessed data prepared for NuExtract3 generation. This preprocessed dataset can be created using `src/data/preprocess_data.py`
+* [nuextract3_outputs.jsonl](https://drive.google.com/file/d/11K1wgG3LlwzRxhfrv8OsiiwVt-oSXMiL/view?usp=drive_link): The extracted outputs of our claude-generated utterances using NuExtract3.
