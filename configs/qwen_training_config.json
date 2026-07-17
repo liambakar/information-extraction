@@ -4,7 +4,7 @@
         "output_directory": "out/training",
         "extraction_template_path": "extraction_templates/template.json",
         "num_workers": 1,
-        "max_rows": 1000
+        "max_rows": 100
     },
     "model": {
         "model_name": "Qwen/Qwen3-0.6B",
@@ -24,7 +24,7 @@
     },
     "wandb": {
         "use_wandb": true,
-        "project": "information-extraction",
+        "project": "test-run-100-samples",
         "run_name": null,
         "entity": null,
         "log_model": false
