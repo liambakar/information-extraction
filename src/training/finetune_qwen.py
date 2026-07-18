@@ -14,7 +14,10 @@ from src.training.modules.callbacks import SaveHFModelCallback
 from src.training.modules.info_extraction_lightning_module import InfoExtractionModule
 from src.training.utils.checkpointing import resolve_checkpointing
 from src.training.utils.config_parser import TrainConfig
-from src.training.utils.utils import build_logger, print_config
+from src.training.utils.utils import build_logger, print_config, split_train_validation
+
+
+SEED = 42
 
 
 def parse_args():
@@ -56,7 +59,7 @@ def main():
 
     logger = build_logger(output_dir, config.wandb)
 
-    L.seed_everything(42, workers=True)
+    L.seed_everything(SEED, workers=True)
 
     print_config(config, logger)
 
@@ -74,8 +77,8 @@ def main():
             flush=True,
         )
 
-    print(f'\n[LOG] Loading training dataset: {TRAIN_PATH}', flush=True)
-    train_ds = InstructionDataset(
+    print(f'\n[LOG] Loading dataset: {TRAIN_PATH}', flush=True)
+    dataset = InstructionDataset(
         path=TRAIN_PATH,
         tokenizer=tokenizer,
         template_path=config.data.extraction_template_path,
@@ -83,11 +86,29 @@ def main():
     )
     max_rows = config.data.max_rows
     if max_rows > -1:
-        shuffled_indices = torch.randperm(len(train_ds)).tolist()
+        generator = torch.Generator().manual_seed(SEED)
+        shuffled_indices = torch.randperm(len(dataset), generator=generator).tolist()
         shuffled_indices = shuffled_indices[:max_rows]
-        train_ds = Subset(train_ds, shuffled_indices)
+        dataset = Subset(dataset, shuffled_indices)
 
-    print(f'[LOG] Training dataset loaded with {len(train_ds)} examples.', flush=True)
+    train_ds, val_ds = split_train_validation(
+        dataset, config.data.validation_split, SEED
+    )
+
+    print(f'[LOG] Dataset loaded with {len(dataset)} examples.', flush=True)
+    if val_ds is None:
+        print(
+            '[LOG] Train/validation split disabled; using all examples for training.',
+            flush=True,
+        )
+    else:
+        print(
+            '[LOG] Train/validation split:\n'
+            f'\ttrain={len(train_ds)} examples, '
+            f'\tvalidation={len(val_ds)} examples, '
+            f'\tvalidation_split={config.data.validation_split}',
+            flush=True,
+        )
 
     persistent_workers = NUM_WORKERS > 0
     train_loader = DataLoader(
@@ -98,6 +119,20 @@ def main():
         pin_memory=True,
         persistent_workers=persistent_workers,
     )
+
+    val_loader = (
+        DataLoader(
+            val_ds,
+            batch_size=config.optimization.batch_size,
+            shuffle=False,
+            num_workers=NUM_WORKERS,
+            pin_memory=True,
+            persistent_workers=persistent_workers,
+        )
+        if val_ds is not None
+        else None
+    )
+
     print(
         '\n[LOG] Training dataloader ready: '
         f'  batch_size={config.optimization.batch_size}, '
@@ -176,11 +211,15 @@ def main():
     print(f'[LOG] Resume decision: {checkpointing.message}', flush=True)
     print(f'[LOG] Resume checkpoint: {ckpt_path}', flush=True)
     print('[LOG] Starting training...', flush=True)
-    trainer.fit(
-        model,
-        train_dataloaders=train_loader,
-        ckpt_path=ckpt_path,
-    )
+    fit_kwargs = {
+        'model': model,
+        'train_dataloaders': train_loader,
+        'ckpt_path': ckpt_path,
+    }
+    if val_loader is not None:
+        fit_kwargs['val_dataloaders'] = val_loader
+
+    trainer.fit(**fit_kwargs)
 
     print('[LOG] Training completed! 🥳', flush=True)
     print(f'[LOG] Final Hugging Face model export path: {hf_dir / "final"}', flush=True)

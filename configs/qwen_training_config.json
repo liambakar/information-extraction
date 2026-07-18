@@ -4,7 +4,8 @@
         "output_directory": "out/training",
         "extraction_template_path": "extraction_templates/template.json",
         "num_workers": 1,
-        "max_rows": 100
+        "max_rows": 100,
+        "validation_split": 0.1
     },
     "model": {
         "model_name": "Qwen/Qwen3-0.6B",

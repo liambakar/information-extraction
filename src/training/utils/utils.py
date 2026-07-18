@@ -1,8 +1,10 @@
 import json
+import torch
 import wandb
 
 from lightning.pytorch.loggers import WandbLogger
 from lightning.pytorch.utilities import rank_zero_only
+from torch.utils.data import random_split
 
 
 from src.training.utils.config_parser import TrainConfig, WandbConfig
@@ -57,3 +59,17 @@ def print_config(config: TrainConfig, logger: WandbLogger | None) -> None:
         """
 
         logger.experiment.log({'runtime_config': wandb.Html(html_content)})
+
+
+def split_train_validation(dataset, validation_split: float, seed: int):
+    if validation_split <= 0.0:
+        return dataset, None
+
+    n = len(dataset)
+
+    val_n = int(n * validation_split)
+    val_n = max(1, val_n)
+    train_n = n - val_n
+
+    generator = torch.Generator().manual_seed(seed)
+    return random_split(dataset, [train_n, val_n], generator=generator)

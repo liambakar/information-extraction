@@ -1,6 +1,6 @@
 import json
 from typing import Optional, Any
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class DataConfig(BaseModel):
@@ -9,6 +9,7 @@ class DataConfig(BaseModel):
     extraction_template_path: str
     num_workers: int
     max_rows: int
+    validation_split: float = Field(ge=0.0, lt=1.0)
 
 
 class ModelConfig(BaseModel):

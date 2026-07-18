@@ -44,6 +44,21 @@ class InfoExtractionModule(L.LightningModule):
 
         return loss
 
+    def validation_step(self, batch, _batch_idx):
+        outputs = self.model(**batch)
+        loss = outputs.loss
+
+        self.log(
+            'val_loss',
+            loss,
+            prog_bar=True,
+            on_step=False,
+            on_epoch=True,
+            sync_dist=True,
+        )
+
+        return loss
+
     def configure_optimizers(self) -> OptimizerLRScheduler:
         optimizer = torch.optim.AdamW(
             self.model.parameters(),
