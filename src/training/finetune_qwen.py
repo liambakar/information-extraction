@@ -147,6 +147,7 @@ def main():
         lr=config.optimization.lr,
         weight_decay=config.optimization.weight_decay,
         warmup_steps=config.optimization.warmup_steps,
+        tokenizer=tokenizer,
     )
     print(f'[LOG] {MODEL_NAME} model loaded.', flush=True)
 

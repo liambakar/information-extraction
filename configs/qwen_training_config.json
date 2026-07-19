@@ -3,8 +3,8 @@
         "training_dataset_path": "datasets/nuextract3_outputs.jsonl",
         "output_directory": "out/training",
         "extraction_template_path": "extraction_templates/template.json",
-        "num_workers": 1,
-        "max_rows": 100,
+        "num_workers": 100,
+        "max_rows": -1,
         "validation_split": 0.1
     },
     "model": {
@@ -12,12 +12,12 @@
         "max_length": 512
     },
     "optimization": {
-        "lr": 0.00001,
+        "lr": 0.00005,
         "weight_decay": 0.01,
         "warmup_steps": 100,
-        "batch_size": 2,
-        "accumulate_grad_batches": 32,
-        "max_epochs": 5
+        "batch_size": 4,
+        "accumulate_grad_batches": 16,
+        "max_epochs": 4
     },
     "hardware": {
         "devices": "auto",

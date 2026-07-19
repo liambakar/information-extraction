@@ -8,7 +8,7 @@ mkdir -p "$OUTPUT_DIR"
 
 sbatch <<EOT
 #!/bin/bash
-#SBATCH --job-name="info_extract_${RUN_NAME}_train"
+#SBATCH --job-name="${RUN_NAME}"
 #SBATCH --mail-type=FAIL,END
 #SBATCH --mail-user=lbakar@uw.edu
 

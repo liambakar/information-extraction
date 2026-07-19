@@ -8,13 +8,15 @@ class InfoExtractionModule(L.LightningModule):
     def __init__(
         self,
         model_name,
-        lr=1e-5,
-        weight_decay=0.01,
-        warmup_steps=100,
+        tokenizer,
+        lr,
+        weight_decay,
+        warmup_steps,
         total_steps=None,
     ):
         super().__init__()
-        self.save_hyperparameters()
+        self.save_hyperparameters(ignore=['tokenizer'])
+        self.tokenizer = tokenizer
 
         self.lr = lr
         self.weight_decay = weight_decay
@@ -56,6 +58,54 @@ class InfoExtractionModule(L.LightningModule):
             on_epoch=True,
             sync_dist=True,
         )
+
+        if _batch_idx == 0 and self.trainer.is_global_zero:
+            input_ids = batch['input_ids']
+            pred_ids = outputs.logits.argmax(dim=-1)
+
+            labels = batch['labels'][i, 1:]
+            predictions = pred_ids[i, :-1]
+
+            valid_mask = labels != -100
+
+            target_text = self.tokenizer.decode(
+                labels[valid_mask],
+                skip_special_tokens=True,
+            )
+            predicted_text = self.tokenizer.decode(
+                predictions[valid_mask],
+                skip_special_tokens=True,
+            )
+
+            print('\n' + '#' * 40)
+            print(f' Validation Samples for Batch {batch_idx} ')
+            print('#' * 40)
+
+            for i in range(min(input_ids.size(0), 3)):
+                input_text = self.tokenizer.decode(
+                    input_ids[i],
+                    skip_special_tokens=True,
+                )
+
+                predicted_text = self.tokenizer.decode(
+                    pred_ids[i, :-1],
+                    skip_special_tokens=True,
+                )
+
+                target_text = self.tokenizer.decode(
+                    input_ids[i, 1:],
+                    skip_special_tokens=True,
+                )
+
+                print(f'--- SAMPLE {i + 1} ---')
+                print(f'INPUT TEXT:\n{input_text.strip()}')
+                print(f'\nTARGET NEXT TOKENS:\n{target_text.strip()}')
+                print(f'\nPREDICTED NEXT TOKENS:\n{predicted_text.strip()}')
+                print('-' * 20)
+                print('\n')
+
+            print('#' * 40 + '\n')
+            
 
         return loss
 
