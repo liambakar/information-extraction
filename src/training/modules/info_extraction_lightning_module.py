@@ -63,37 +63,27 @@ class InfoExtractionModule(L.LightningModule):
             input_ids = batch['input_ids']
             pred_ids = outputs.logits.argmax(dim=-1)
 
-            labels = batch['labels'][i, 1:]
-            predictions = pred_ids[i, :-1]
-
-            valid_mask = labels != -100
-
-            target_text = self.tokenizer.decode(
-                labels[valid_mask],
-                skip_special_tokens=True,
-            )
-            predicted_text = self.tokenizer.decode(
-                predictions[valid_mask],
-                skip_special_tokens=True,
-            )
-
             print('\n' + '#' * 40)
-            print(f' Validation Samples for Batch {batch_idx} ')
+            print(f' Validation Samples for Batch {_batch_idx} ')
             print('#' * 40)
 
             for i in range(min(input_ids.size(0), 3)):
+                labels = batch['labels'][i, 1:]
+                predictions = pred_ids[i, :-1]
+                valid_mask = labels != -100
+
                 input_text = self.tokenizer.decode(
                     input_ids[i],
                     skip_special_tokens=True,
                 )
 
                 predicted_text = self.tokenizer.decode(
-                    pred_ids[i, :-1],
+                    predictions[valid_mask],
                     skip_special_tokens=True,
                 )
 
                 target_text = self.tokenizer.decode(
-                    input_ids[i, 1:],
+                    labels[valid_mask],
                     skip_special_tokens=True,
                 )
 
@@ -105,7 +95,6 @@ class InfoExtractionModule(L.LightningModule):
                 print('\n')
 
             print('#' * 40 + '\n')
-            
 
         return loss
 
