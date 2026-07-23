@@ -18,10 +18,10 @@
         "warmup_steps": 100,
         "batch_size": 4,
         "accumulate_grad_batches": 16,
-        "max_epochs": 4
+        "max_epochs": 10
     },
     "hardware": {
-        "devices": "auto",
+        "devices": 4,
         "num_nodes": 1
     },
     "wandb": {
