@@ -1,6 +1,7 @@
 {
     "data": {
         "training_dataset_path": "datasets/nuextract3_outputs.jsonl",
+        "dataset_type": "partial",
         "output_directory": "out/training",
         "extraction_template_path": "extraction_templates/template.json",
         "num_workers": 100,

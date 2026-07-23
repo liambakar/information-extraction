@@ -1,10 +1,11 @@
 import json
-from typing import Optional, Any
+from typing import Literal, Optional, Any
 from pydantic import BaseModel, Field
 
 
 class DataConfig(BaseModel):
     training_dataset_path: str
+    dataset_type: Literal['full', 'partial']
     output_directory: str
     extraction_template_path: str
     num_workers: int
