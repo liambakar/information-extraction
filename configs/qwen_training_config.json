@@ -26,7 +26,7 @@
     },
     "wandb": {
         "use_wandb": true,
-        "project": "test-run-100-samples",
+        "project": "partial-template",
         "run_name": null,
         "entity": null,
         "log_model": false

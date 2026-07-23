@@ -261,5 +261,5 @@ class PartialTemplateInstructionDataset(Dataset):
 
 DATASET = {
     'full': FullTemplateInstructionDataset,
-    'partiail': PartialTemplateInstructionDataset,
+    'partial': PartialTemplateInstructionDataset,
 }
