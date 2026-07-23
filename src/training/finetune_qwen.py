@@ -9,7 +9,7 @@ from transformers import AutoTokenizer
 from lightning.pytorch.callbacks import ModelCheckpoint, LearningRateMonitor
 from lightning.pytorch.strategies import DDPStrategy
 
-from src.training.data.dataset import DATASET
+from src.training.data.dataset import DATASET, PartialTemplateInstructionDataset
 from src.training.modules.callbacks import SaveHFModelCallback
 from src.training.modules.info_extraction_lightning_module import InfoExtractionModule
 from src.training.utils.checkpointing import resolve_checkpointing
@@ -78,7 +78,7 @@ def main():
         )
 
     print(f'\n[LOG] Loading dataset: {TRAIN_PATH}', flush=True)
-    dataset = DATASET[config.data.dataset_type](
+    dataset = PartialTemplateInstructionDataset(
         path=TRAIN_PATH,
         tokenizer=tokenizer,
         template_path=config.data.extraction_template_path,
@@ -119,6 +119,7 @@ def main():
         pin_memory=True,
         persistent_workers=persistent_workers,
     )
+    
 
     val_loader = (
         DataLoader(
