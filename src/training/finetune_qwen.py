@@ -11,6 +11,7 @@ from lightning.pytorch.strategies import DDPStrategy
 
 from src.training.data.dataset import DATASET
 from src.training.modules.callbacks import SaveHFModelCallback
+from src.training.modules.collator import Collator
 from src.training.modules.info_extraction_lightning_module import InfoExtractionModule
 from src.training.utils.checkpointing import resolve_checkpointing
 from src.training.utils.config_parser import TrainConfig
@@ -111,6 +112,12 @@ def main():
         )
 
     persistent_workers = NUM_WORKERS > 0
+
+    collator = Collator(
+        pad_token_id=tokenizer.pad_token_id,
+        label_pad_token_id=-100,
+    )
+
     train_loader = DataLoader(
         train_ds,
         batch_size=config.optimization.batch_size,
@@ -118,6 +125,7 @@ def main():
         num_workers=NUM_WORKERS,
         pin_memory=True,
         persistent_workers=persistent_workers,
+        collate_fn=collator,
     )
 
     val_loader = (
@@ -128,6 +136,7 @@ def main():
             num_workers=NUM_WORKERS,
             pin_memory=True,
             persistent_workers=persistent_workers,
+            collate_fn=collator,
         )
         if val_ds is not None
         else None

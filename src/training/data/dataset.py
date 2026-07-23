@@ -171,7 +171,7 @@ class PartialTemplateInstructionDataset(Dataset):
 
     def _format_classification_key(self, key):
         mapping = {
-            'Symptoms': 'symtpom',
+            'Symptoms': 'symptom',
             'Treatment': 'treatment',
             'Activities': 'activity',
             'Food': 'food',
