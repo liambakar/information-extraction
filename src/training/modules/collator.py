@@ -11,9 +11,6 @@ class Collator:
         labels = [b['labels'] for b in batch]
         attention_mask = [b['attention_mask'] for b in batch]
 
-        # ---- logging-only tensors ----
-        target_ids = [b['target_ids'] for b in batch]
-
         # ---- pad main training tensors ----
         input_ids = pad_sequence(
             input_ids,
@@ -37,5 +34,4 @@ class Collator:
             'input_ids': input_ids,
             'labels': labels,
             'attention_mask': attention_mask,
-            'target_ids': target_ids,
         }
