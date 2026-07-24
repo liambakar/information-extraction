@@ -49,6 +49,43 @@ class InfoExtractionModule(L.LightningModule):
             sync_dist=True,
         )
 
+        if _batch_idx == 0 and self.trainer.is_global_zero:
+            input_ids = batch['input_ids']
+            pred_ids = outputs.logits.argmax(dim=-1)
+
+            print('\n' + '#' * 40)
+            print(f' Training Samples for Batch {_batch_idx} ')
+            print('#' * 40)
+
+            for i in range(min(input_ids.size(0), 3)):
+                labels = batch['labels'][i, 1:]
+                predictions = pred_ids[i, :-1]
+                valid_mask = labels != -100
+
+                input_text = self.tokenizer.decode(
+                    input_ids[i],
+                    skip_special_tokens=True,
+                )
+
+                predicted_text = self.tokenizer.decode(
+                    predictions[valid_mask],
+                    skip_special_tokens=True,
+                )
+
+                target_text = self.tokenizer.decode(
+                    labels[valid_mask],
+                    skip_special_tokens=True,
+                )
+
+                print(f'--- SAMPLE {i + 1} ---')
+                print(f'INPUT TEXT:\n{input_text.strip()}')
+                print(f'\nTARGET NEXT TOKENS:\n{target_text.strip()}')
+                print(f'\nPREDICTED NEXT TOKENS:\n{predicted_text.strip()}')
+                print('-' * 20)
+                print('\n')
+
+            print('#' * 40 + '\n')
+
         return loss
 
     def on_validation_start(self):

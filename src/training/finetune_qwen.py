@@ -78,7 +78,7 @@ def main():
             flush=True,
         )
 
-    print(f'\n[LOG] Loading dataset: {TRAIN_PATH}', flush=True)
+    print(f'\n[LOG] Loading dataset: {TRAIN_PATH} ({config.data.dataset_type} templates)', flush=True)
     dataset = DATASET[config.data.dataset_type](
         path=TRAIN_PATH,
         tokenizer=tokenizer,
@@ -127,6 +127,7 @@ def main():
         persistent_workers=persistent_workers,
         collate_fn=collator,
     )
+    
 
     val_loader = (
         DataLoader(
