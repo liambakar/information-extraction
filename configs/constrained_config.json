@@ -1,17 +1,17 @@
 {
     "data": {
         "training_dataset_path": "datasets/nuextract3_outputs.jsonl",
-        "dataset_type": "partial",
+        "dataset_type": "full",
         "output_directory": "out/training",
         "extraction_template_path": "extraction_templates/template.json",
         "num_workers": 100,
-        "max_rows": -1,
+        "max_rows": 10,
         "validation_split": 0.1
     },
     "model": {
         "model_name": "Qwen/Qwen3-0.6B",
-        "max_length": 512,
-        "lightning_module_type": "standard"
+        "max_length": 1024,
+        "lightning_module_type": "constrained"
     },
     "optimization": {
         "lr": 0.00005,
@@ -27,7 +27,7 @@
     },
     "wandb": {
         "use_wandb": true,
-        "project": "partial-template",
+        "project": "constrained-full-template",
         "run_name": null,
         "entity": null,
         "log_model": false
