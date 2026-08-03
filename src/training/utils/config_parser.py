@@ -16,6 +16,7 @@ class DataConfig(BaseModel):
 class ModelConfig(BaseModel):
     model_name: str
     max_length: int
+    lightning_module_type: Literal['standard', 'constrained'] = 'standard'
 
 
 class OptimizationConfig(BaseModel):

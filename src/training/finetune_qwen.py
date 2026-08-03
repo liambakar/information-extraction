@@ -12,9 +12,9 @@ from lightning.pytorch.strategies import DDPStrategy
 from src.training.data.dataset import DATASET
 from src.training.modules.callbacks import SaveHFModelCallback
 from src.training.modules.collator import Collator
-from src.training.modules.info_extraction_lightning_module import InfoExtractionModule
 from src.training.utils.checkpointing import resolve_checkpointing
 from src.training.utils.config_parser import TrainConfig
+from src.training.utils.model_builder import build_model
 from src.training.utils.utils import build_logger, print_config, split_train_validation
 
 
@@ -44,6 +44,8 @@ def main():
     OUTPUT_DIR = args.output_dir if args.output_dir else config.data.output_directory
     NUM_WORKERS = config.data.num_workers
     MODEL_NAME = config.model.model_name
+    DATASET_TYPE = config.data.dataset_type
+    TEMPLATE_PATH = config.data.extraction_template_path
 
     if args.run_name:
         config.wandb.run_name = args.run_name
@@ -78,11 +80,14 @@ def main():
             flush=True,
         )
 
-    print(f'\n[LOG] Loading dataset: {TRAIN_PATH} ({config.data.dataset_type} templates)', flush=True)
-    dataset = DATASET[config.data.dataset_type](
+    print(
+        f'\n[LOG] Loading dataset: {TRAIN_PATH} ({DATASET_TYPE} templates)',
+        flush=True,
+    )
+    dataset = DATASET[DATASET_TYPE](
         path=TRAIN_PATH,
         tokenizer=tokenizer,
-        template_path=config.data.extraction_template_path,
+        template_path=TEMPLATE_PATH,
         max_length=config.model.max_length,
     )
     max_rows = config.data.max_rows
@@ -127,7 +132,6 @@ def main():
         persistent_workers=persistent_workers,
         collate_fn=collator,
     )
-    
 
     val_loader = (
         DataLoader(
@@ -152,12 +156,17 @@ def main():
     )
 
     print(f'\n[LOG] Loading model: {MODEL_NAME}', flush=True)
-    model = InfoExtractionModule(
+    MODULE_TYPE = config.model.lightning_module_type
+
+    model = build_model(
         model_name=MODEL_NAME,
+        module_type=MODULE_TYPE,
         lr=config.optimization.lr,
         weight_decay=config.optimization.weight_decay,
         warmup_steps=config.optimization.warmup_steps,
         tokenizer=tokenizer,
+        template_path=TEMPLATE_PATH,
+        dataset_type=DATASET_TYPE,
     )
     print(f'[LOG] {MODEL_NAME} model loaded.', flush=True)
 

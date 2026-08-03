@@ -10,7 +10,8 @@
     },
     "model": {
         "model_name": "Qwen/Qwen3-0.6B",
-        "max_length": 512
+        "max_length": 512,
+        "lightning_module_type": "constrained"
     },
     "optimization": {
         "lr": 0.00005,

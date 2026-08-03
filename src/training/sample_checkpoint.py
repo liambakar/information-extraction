@@ -8,7 +8,7 @@ from pathlib import Path
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from src.training.data.dataset import DATASET
+from src.training.data.dataset import DATASET, END_SEQ, START_SEQ
 
 
 def parse_args():
@@ -26,6 +26,16 @@ def parse_args():
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--max-length', type=int, default=512)
     parser.add_argument('--max-new-tokens', type=int, default=256)
+    parser.add_argument('--input', help='Custom utterance to run after the samples')
+    parser.add_argument(
+        '--category',
+        choices=('activity', 'food', 'mood', 'symptom', 'treatment'),
+        help='Template category for a custom input with a partial model',
+    )
+    parser.add_argument(
+        '--ground-truth',
+        help='Optional expected JSON or text for the custom input',
+    )
     parser.add_argument(
         '--device',
         choices=('auto', 'cuda', 'mps', 'cpu'),
@@ -67,12 +77,31 @@ def decode(tokenizer, token_ids):
     ).strip()
 
 
+def custom_prompt(input_text, template_path, dataset_type, category):
+    with template_path.open(encoding='utf-8') as template_file:
+        template = json.load(template_file)
+
+    if dataset_type == 'partial':
+        if category is None:
+            raise ValueError('--category is required for partial custom input.')
+        template = template[category]
+
+    template_text = json.dumps(template, ensure_ascii=False, indent=4)
+    return (
+        f'{START_SEQ}template\n{template_text}\n{END_SEQ}'
+        f'{START_SEQ}user\n{input_text}\n{END_SEQ}'
+        f'{START_SEQ}assistant\n'
+    )
+
+
 def main():
     args = parse_args()
     if not args.checkpoint.is_file():
         raise FileNotFoundError(args.checkpoint)
     if not args.data.is_file():
         raise FileNotFoundError(args.data)
+    if args.ground_truth and not args.input:
+        raise ValueError('--ground-truth requires --input.')
 
     output = args.output or args.checkpoint.with_name(
         f'{args.checkpoint.stem}-samples.md'
@@ -164,6 +193,50 @@ def main():
                 '### Ground truth',
                 '',
                 markdown_block(decode(tokenizer, target_ids)),
+                '',
+            ]
+        )
+
+    if args.input:
+        prompt = custom_prompt(
+            args.input,
+            args.template,
+            args.dataset_type,
+            args.category,
+        )
+        encoded = tokenizer(
+            prompt,
+            truncation=True,
+            max_length=args.max_length,
+            return_tensors='pt',
+        ).to(device)
+
+        print('Generating custom input', flush=True)
+        with torch.inference_mode():
+            output_ids = model.generate(
+                **encoded,
+                max_new_tokens=args.max_new_tokens,
+                do_sample=False,
+                pad_token_id=tokenizer.pad_token_id,
+                eos_token_id=tokenizer.eos_token_id,
+            )[0]
+
+        prediction_ids = output_ids[encoded['input_ids'].shape[1] :].cpu()
+        report.extend(
+            [
+                '## Custom input',
+                '',
+                '### Input',
+                '',
+                markdown_block(prompt),
+                '',
+                '### Prediction',
+                '',
+                markdown_block(decode(tokenizer, prediction_ids)),
+                '',
+                '### Ground truth',
+                '',
+                markdown_block(args.ground_truth or 'Not provided'),
                 '',
             ]
         )

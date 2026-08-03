@@ -1,6 +1,10 @@
 import torch
 import lightning as L
-from transformers import AutoModelForCausalLM, get_cosine_schedule_with_warmup
+from transformers import (
+    AutoModelForCausalLM,
+    LogitsProcessor,
+    get_cosine_schedule_with_warmup,
+)
 from lightning.pytorch.utilities.types import OptimizerLRScheduler
 
 
@@ -177,14 +181,19 @@ class InfoExtractionModule(L.LightningModule):
                 )
 
             with torch.no_grad():
-                output = self.model.generate(  # type: ignore
+                generation_kwargs = {
                     **generation_inputs,
-                    max_new_tokens=MAX_LOGGED_NEW_TOKENS,
-                    do_sample=False,
-                    pad_token_id=self._generation_pad_token_id(),
-                )
+                    'max_new_tokens': MAX_LOGGED_NEW_TOKENS,
+                    'do_sample': False,
+                    'pad_token_id': self._generation_pad_token_id(),
+                }
+                if logits_processor := self._generation_logits_processor():
+                    generation_kwargs['logits_processor'] = [logits_processor]
+
+                output = self.model.generate(**generation_kwargs)  # type: ignore
 
             generated_ids = output[0, prompt_ids.size(0) :].detach().cpu()
+            self._validate_generated_ids(generated_ids)
             target_ids = labels[i][labels[i] != -100]
 
             rows.append(
@@ -196,6 +205,12 @@ class InfoExtractionModule(L.LightningModule):
             )
 
         return rows
+
+    def _generation_logits_processor(self) -> None | LogitsProcessor:
+        return None
+
+    def _validate_generated_ids(self, _generated_ids):
+        return None
 
     def _decode_log_tokens(self, token_ids):
         pad_token_id = self.tokenizer.pad_token_id
