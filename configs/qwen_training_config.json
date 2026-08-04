@@ -19,7 +19,8 @@
         "warmup_steps": 100,
         "batch_size": 4,
         "accumulate_grad_batches": 16,
-        "max_epochs": 10
+        "max_epochs": 10,
+        "patience": 1
     },
     "hardware": {
         "devices": 4,

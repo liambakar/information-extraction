@@ -6,7 +6,11 @@ import torch
 
 from torch.utils.data import DataLoader, Subset
 from transformers import AutoTokenizer
-from lightning.pytorch.callbacks import ModelCheckpoint, LearningRateMonitor
+from lightning.pytorch.callbacks import (
+    EarlyStopping,
+    LearningRateMonitor,
+    ModelCheckpoint,
+)
 from lightning.pytorch.strategies import DDPStrategy
 
 from src.training.data.dataset import DATASET
@@ -183,6 +187,31 @@ def main():
 
     hf_export_callback = SaveHFModelCallback(output_dir=hf_dir)
 
+    callbacks = [
+        checkpoint_callback,
+        LearningRateMonitor(logging_interval='step'),
+        hf_export_callback,
+    ]
+    if val_loader is not None:
+        callbacks.append(
+            EarlyStopping(
+                monitor='val_loss',
+                mode='min',
+                patience=config.optimization.patience,
+                verbose=True,
+            )
+        )
+        print(
+            '[LOG] Early stopping enabled: '
+            f'patience={config.optimization.patience} validation epochs.',
+            flush=True,
+        )
+    else:
+        print(
+            '[LOG] Early stopping disabled because no validation split is configured.',
+            flush=True,
+        )
+
     trainer_kwargs = {
         'accelerator': 'gpu',
         'devices': config.hardware.devices,
@@ -194,11 +223,7 @@ def main():
         'gradient_clip_val': 1.0,
         'log_every_n_steps': 10,
         'default_root_dir': output_dir,
-        'callbacks': [
-            checkpoint_callback,
-            LearningRateMonitor(logging_interval='step'),
-            hf_export_callback,
-        ],
+        'callbacks': callbacks,
     }
 
     if logger is not None:

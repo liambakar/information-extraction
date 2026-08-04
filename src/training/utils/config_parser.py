@@ -26,6 +26,7 @@ class OptimizationConfig(BaseModel):
     batch_size: int
     accumulate_grad_batches: int
     max_epochs: int
+    patience: int = Field(ge=0)
 
 
 class HardwareConfig(BaseModel):
