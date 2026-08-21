@@ -1,0 +1,66 @@
+{
+    "data": {
+        "training_dataset_path": "datasets/nuextract3_outputs.jsonl",
+        "dataset_type": "full",
+        "output_directory": "out/rl-training",
+        "extraction_template_path": "extraction_templates/template.json",
+        "num_workers": 8,
+        "max_rows": -1,
+        "validation_split": 0.05
+    },
+    "model": {
+        "model_name": "lbakar/health-log-extraction",
+        "max_length": 1024,
+        "lightning_module_type": "standard"
+    },
+    "optimization": {
+        "lr": 0.000001,
+        "weight_decay": 0.01,
+        "warmup_steps": 100,
+        "batch_size": 1,
+        "accumulate_grad_batches": 8,
+        "max_epochs": 1,
+        "patience": 1
+    },
+    "hardware": {
+        "devices": 4,
+        "num_nodes": 1
+    },
+    "wandb": {
+        "use_wandb": true,
+        "project": "information-extraction-grpo",
+        "run_name": null,
+        "entity": null,
+        "log_model": false
+    },
+    "checkpointing": {
+        "resume_from": "last"
+    },
+    "rl": {
+        "num_generations": 4,
+        "max_completion_length": 512,
+        "temperature": 1.0,
+        "beta": 0.001,
+        "logging_steps": 10,
+        "save_steps": 100,
+        "eval_steps": 100,
+        "num_completions_to_print": 4,
+        "seed": 42,
+        "use_vllm": false
+    },
+    "rewards": {
+        "valid_json": 0.1,
+        "invalid_json": -1.0,
+        "json_validity_weight": 1.0,
+        "schema_weight": 0.1,
+        "extraction_weight": 0.7,
+        "hallucination_weight": 0.2,
+        "correct_value": 1.0,
+        "correct_null": 0.25,
+        "omission": -0.5,
+        "hallucination": -1.0,
+        "incorrect_value": -0.75,
+        "case_sensitive": false,
+        "list_order_sensitive": false
+    }
+}
