@@ -1,5 +1,4 @@
 import argparse
-import importlib
 import importlib.metadata
 import json
 import os
@@ -8,6 +7,9 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
+
+from packaging.specifiers import SpecifierSet
+from packaging.version import InvalidVersion, Version
 
 from src.training.modules.rewards import (
     DEFAULT_REWARD_CONFIG,
@@ -29,6 +31,14 @@ CLASSIFICATION_TO_SECTION = {
     'Symptoms': 'symptom',
     'Treatment': 'treatment',
 }
+
+RL_DEPENDENCY_REQUIREMENTS = {
+    'transformers': '==5.13.1',
+    'trl': '==1.10.0',
+    'datasets': '==4.7.0',
+    'accelerate': '>=1.4.0,<2',
+}
+RL_REQUIREMENTS_FILE = 'requirements-rl.txt'
 
 
 @dataclass(frozen=True)
@@ -356,56 +366,10 @@ def validate_completion_logging_support(
         )
 
 
-def ensure_transformers_torch_compatibility(
-    public_tensor_module: Any = None,
-    legacy_tensor_module: Any = None,
-) -> bool:
-    """Expose legacy ``DTensor`` at the public path expected by Transformers.
-
-    Returns ``True`` when the compatibility export was installed and ``False``
-    when the installed PyTorch already provides the public API.
-    """
-    if public_tensor_module is None:
-        try:
-            public_tensor_module = importlib.import_module(
-                'torch.distributed.tensor'
-            )
-        except ImportError as exc:
-            raise RuntimeError(
-                'PyTorch was built without torch.distributed.tensor support. '
-                'Install a distributed PyTorch build compatible with Transformers.'
-            ) from exc
-
-    if hasattr(public_tensor_module, 'DTensor'):
-        return False
-
-    if legacy_tensor_module is None:
-        try:
-            legacy_tensor_module = importlib.import_module(
-                'torch.distributed._tensor'
-            )
-        except ImportError as exc:
-            raise RuntimeError(
-                'The installed PyTorch and Transformers versions are incompatible: '
-                'neither the public nor legacy DTensor API is available. Upgrade '
-                'PyTorch or install a Transformers version compatible with it.'
-            ) from exc
-
-    dtensor = getattr(legacy_tensor_module, 'DTensor', None)
-    if dtensor is None:
-        raise RuntimeError(
-            'The installed PyTorch and Transformers versions are incompatible: '
-            'the legacy torch.distributed._tensor module has no DTensor class.'
-        )
-
-    public_tensor_module.DTensor = dtensor
-    return True
-
-
 def training_dependency_versions() -> dict[str, str]:
     """Return installed training-library versions without importing them."""
     versions = {}
-    for package in ('torch', 'transformers', 'trl', 'datasets'):
+    for package in ('torch', *RL_DEPENDENCY_REQUIREMENTS):
         try:
             versions[package] = importlib.metadata.version(package)
         except importlib.metadata.PackageNotFoundError:
@@ -413,14 +377,40 @@ def training_dependency_versions() -> dict[str, str]:
     return versions
 
 
-def load_training_dependencies():
-    """Import the heavy training stack after applying compatibility checks."""
-    compatibility_added = ensure_transformers_torch_compatibility()
-    if compatibility_added:
-        print(
-            '[LOG] Added the legacy PyTorch DTensor compatibility export.',
-            flush=True,
+def validate_training_dependency_versions(
+    versions: dict[str, str] | None = None,
+) -> None:
+    """Reject untested RL dependency combinations before importing them."""
+    installed_versions = (
+        versions if versions is not None else training_dependency_versions()
+    )
+    problems = []
+
+    for package, requirement in RL_DEPENDENCY_REQUIREMENTS.items():
+        installed = installed_versions.get(package, 'not installed')
+        try:
+            is_supported = Version(installed) in SpecifierSet(requirement)
+        except InvalidVersion:
+            is_supported = False
+        if not is_supported:
+            problems.append(
+                f'{package} {installed!r} does not satisfy {requirement}'
+            )
+
+    if problems:
+        details = '\n'.join(f'  - {problem}' for problem in problems)
+        raise RuntimeError(
+            'Incompatible GRPO dependency versions:\n'
+            f'{details}\n'
+            'Install the tested RL stack without replacing the CUDA-enabled '
+            'PyTorch build:\n'
+            f'  python -m pip install --upgrade -r {RL_REQUIREMENTS_FILE}'
         )
+
+
+def load_training_dependencies():
+    """Import the heavy training stack after checking the tested versions."""
+    validate_training_dependency_versions()
 
     try:
         from datasets import Dataset
@@ -430,7 +420,9 @@ def load_training_dependencies():
         versions = training_dependency_versions()
         raise RuntimeError(
             'Could not import the GRPO training dependencies. '
-            f'Installed versions: {versions}'
+            f'Installed versions: {versions}. Reinstall them with: '
+            f'python -m pip install --upgrade --force-reinstall '
+            f'-r {RL_REQUIREMENTS_FILE}'
         ) from exc
 
     return Dataset, AutoTokenizer, GRPOConfig, GRPOTrainer

@@ -13,6 +13,7 @@ from src.training.train_rl import (
     select_rows,
     split_records,
     validate_completion_logging_support,
+    validate_training_dependency_versions,
 )
 
 
@@ -35,6 +36,30 @@ ROW = {
 
 
 class RLTrainingHelpersTest(unittest.TestCase):
+    def test_tested_rl_dependency_versions_are_accepted(self):
+        validate_training_dependency_versions(
+            {
+                'transformers': '5.13.1',
+                'trl': '1.10.0',
+                'datasets': '4.7.0',
+                'accelerate': '1.12.0',
+            }
+        )
+
+    def test_incompatible_rl_dependencies_have_repair_command(self):
+        versions = {
+            'transformers': '5.16.1',
+            'trl': '0.12.1',
+            'datasets': '2.19.1',
+            'accelerate': 'not installed',
+        }
+
+        with self.assertRaisesRegex(
+            RuntimeError,
+            r'(?s)trl.*0\.12\.1.*requirements-rl\.txt',
+        ):
+            validate_training_dependency_versions(versions)
+
     def test_dedicated_rl_config_loads_all_training_sections(self):
         config_path = REPO_ROOT / 'configs' / 'qwen_rl_training_config.json'
 

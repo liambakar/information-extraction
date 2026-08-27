@@ -1,0 +1,8 @@
+# Tested GRPO stack. PyTorch is intentionally omitted so pip does not replace
+# the cluster's CUDA-enabled build.
+trl==1.10.0
+transformers==5.13.1
+datasets==4.7.0
+accelerate>=1.4.0,<2
+packaging>20.0
+wandb>=0.18.0
