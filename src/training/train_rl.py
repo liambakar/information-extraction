@@ -1,4 +1,6 @@
 import argparse
+import importlib
+import importlib.metadata
 import json
 import os
 import random
@@ -354,6 +356,95 @@ def validate_completion_logging_support(
         )
 
 
+def ensure_transformers_torch_compatibility(
+    public_tensor_module: Any = None,
+    legacy_tensor_module: Any = None,
+) -> bool:
+    """Expose legacy ``DTensor`` at the public path expected by Transformers.
+
+    Returns ``True`` when the compatibility export was installed and ``False``
+    when the installed PyTorch already provides the public API.
+    """
+    if public_tensor_module is None:
+        try:
+            public_tensor_module = importlib.import_module(
+                'torch.distributed.tensor'
+            )
+        except ImportError as exc:
+            raise RuntimeError(
+                'PyTorch was built without torch.distributed.tensor support. '
+                'Install a distributed PyTorch build compatible with Transformers.'
+            ) from exc
+
+    if hasattr(public_tensor_module, 'DTensor'):
+        return False
+
+    if legacy_tensor_module is None:
+        try:
+            legacy_tensor_module = importlib.import_module(
+                'torch.distributed._tensor'
+            )
+        except ImportError as exc:
+            raise RuntimeError(
+                'The installed PyTorch and Transformers versions are incompatible: '
+                'neither the public nor legacy DTensor API is available. Upgrade '
+                'PyTorch or install a Transformers version compatible with it.'
+            ) from exc
+
+    dtensor = getattr(legacy_tensor_module, 'DTensor', None)
+    if dtensor is None:
+        raise RuntimeError(
+            'The installed PyTorch and Transformers versions are incompatible: '
+            'the legacy torch.distributed._tensor module has no DTensor class.'
+        )
+
+    public_tensor_module.DTensor = dtensor
+    return True
+
+
+def training_dependency_versions() -> dict[str, str]:
+    """Return installed training-library versions without importing them."""
+    versions = {}
+    for package in ('torch', 'transformers', 'trl', 'datasets'):
+        try:
+            versions[package] = importlib.metadata.version(package)
+        except importlib.metadata.PackageNotFoundError:
+            versions[package] = 'not installed'
+    return versions
+
+
+def load_training_dependencies():
+    """Import the heavy training stack after applying compatibility checks."""
+    compatibility_added = ensure_transformers_torch_compatibility()
+    if compatibility_added:
+        print(
+            '[LOG] Added the legacy PyTorch DTensor compatibility export.',
+            flush=True,
+        )
+
+    try:
+        from datasets import Dataset
+        from transformers import AutoTokenizer
+        from trl import GRPOConfig, GRPOTrainer
+    except (ImportError, RuntimeError) as exc:
+        versions = training_dependency_versions()
+        raise RuntimeError(
+            'Could not import the GRPO training dependencies. '
+            f'Installed versions: {versions}'
+        ) from exc
+
+    return Dataset, AutoTokenizer, GRPOConfig, GRPOTrainer
+
+
+def validate_training_environment() -> None:
+    """Run the launcher preflight once before starting distributed workers."""
+    versions = training_dependency_versions()
+    print(f'[LOG] Checking GRPO dependencies: {versions}', flush=True)
+    _, _, grpo_config_class, grpo_trainer_class = load_training_dependencies()
+    validate_completion_logging_support(grpo_config_class, grpo_trainer_class)
+    print('[LOG] GRPO dependency preflight passed.', flush=True)
+
+
 def main() -> None:
     args = parse_args()
     config = TrainConfig(args.config_file)
@@ -437,9 +528,9 @@ def main() -> None:
         return
 
     # Heavy training dependencies stay local so dataset helpers remain testable.
-    from datasets import Dataset
-    from transformers import AutoTokenizer
-    from trl import GRPOConfig, GRPOTrainer
+    Dataset, AutoTokenizer, GRPOConfig, GRPOTrainer = (
+        load_training_dependencies()
+    )
 
     validate_completion_logging_support(GRPOConfig, GRPOTrainer)
 

@@ -31,6 +31,11 @@ conda activate genome
 echo "CUDA available:"
 python -c "import torch; print(torch.cuda.is_available())"
 
+echo "GRPO dependency preflight:"
+python -c \
+    "from src.training.train_rl import validate_training_environment as check;"\
+" check()"
+
 echo "GPUs:"
 nvidia-smi
 
