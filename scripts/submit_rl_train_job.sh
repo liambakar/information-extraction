@@ -21,10 +21,10 @@ sbatch <<EOT
 #SBATCH --account=cse
 #SBATCH --partition=ckpt-all
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=4
+#SBATCH --ntasks-per-node=1
 #SBATCH --mem=128G
 #SBATCH --gres=gpu:4
-#SBATCH --cpus-per-task=8
+#SBATCH --cpus-per-task=32
 #SBATCH --constraint="a40|rtx6k|l40s"
 #SBATCH --time=24:00:00
 

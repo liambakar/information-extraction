@@ -47,7 +47,14 @@ ps -ef | grep python
 # ----------------------------
 # Run GRPO training
 # ----------------------------
-srun python -m src.training.train_rl \
+NPROC_PER_NODE="${SLURM_GPUS_ON_NODE:-4}"
+echo "Launching $NPROC_PER_NODE distributed GRPO workers"
+
+srun --nodes=1 --ntasks=1 python -m torch.distributed.run \
+    --standalone \
+    --nnodes=1 \
+    --nproc-per-node="$NPROC_PER_NODE" \
+    --module src.training.train_rl \
     --config "$CONFIG" \
     --run_name "$RUN_NAME" \
     --output_dir "$OUTPUT_DIR"
