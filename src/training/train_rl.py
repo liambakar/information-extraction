@@ -33,12 +33,13 @@ CLASSIFICATION_TO_SECTION = {
 }
 
 RL_DEPENDENCY_REQUIREMENTS = {
+    'torch': '==2.11.0',
     'transformers': '==5.13.1',
     'trl': '==1.10.0',
     'datasets': '==4.7.0',
     'accelerate': '>=1.4.0,<2',
 }
-RL_REQUIREMENTS_FILE = 'requirements-rl.txt'
+RL_SETUP_SCRIPT = 'scripts/setup_rl_environment.sh'
 
 
 @dataclass(frozen=True)
@@ -369,7 +370,7 @@ def validate_completion_logging_support(
 def training_dependency_versions() -> dict[str, str]:
     """Return installed training-library versions without importing them."""
     versions = {}
-    for package in ('torch', *RL_DEPENDENCY_REQUIREMENTS):
+    for package in RL_DEPENDENCY_REQUIREMENTS:
         try:
             versions[package] = importlib.metadata.version(package)
         except importlib.metadata.PackageNotFoundError:
@@ -402,9 +403,8 @@ def validate_training_dependency_versions(
         raise RuntimeError(
             'Incompatible GRPO dependency versions:\n'
             f'{details}\n'
-            'Install the tested RL stack without replacing the CUDA-enabled '
-            'PyTorch build:\n'
-            f'  python -m pip install --upgrade -r {RL_REQUIREMENTS_FILE}'
+            'Install or repair the tested CUDA/GRPO stack with:\n'
+            f'  bash {RL_SETUP_SCRIPT}'
         )
 
 
@@ -420,9 +420,9 @@ def load_training_dependencies():
         versions = training_dependency_versions()
         raise RuntimeError(
             'Could not import the GRPO training dependencies. '
-            f'Installed versions: {versions}. Reinstall them with: '
-            f'python -m pip install --upgrade --force-reinstall '
-            f'-r {RL_REQUIREMENTS_FILE}'
+            f'Installed versions: {versions}. The installed PyTorch files may '
+            f'be inconsistent; repair the environment with: '
+            f'bash {RL_SETUP_SCRIPT}'
         ) from exc
 
     return Dataset, AutoTokenizer, GRPOConfig, GRPOTrainer

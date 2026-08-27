@@ -1,8 +1,9 @@
-# Tested GRPO stack. PyTorch is intentionally omitted so pip does not replace
-# the cluster's CUDA-enabled build.
+# Tested GRPO stack. The setup script installs and verifies the CUDA-enabled
+# PyTorch wheel separately.
 trl==1.10.0
 transformers==5.13.1
 datasets==4.7.0
 accelerate>=1.4.0,<2
 packaging>20.0
-wandb>=0.18.0
+wandb==0.25.1
+protobuf>=5,<6

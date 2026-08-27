@@ -39,6 +39,7 @@ class RLTrainingHelpersTest(unittest.TestCase):
     def test_tested_rl_dependency_versions_are_accepted(self):
         validate_training_dependency_versions(
             {
+                'torch': '2.11.0+cu128',
                 'transformers': '5.13.1',
                 'trl': '1.10.0',
                 'datasets': '4.7.0',
@@ -48,6 +49,7 @@ class RLTrainingHelpersTest(unittest.TestCase):
 
     def test_incompatible_rl_dependencies_have_repair_command(self):
         versions = {
+            'torch': '2.11.0+cu128',
             'transformers': '5.16.1',
             'trl': '0.12.1',
             'datasets': '2.19.1',
@@ -56,7 +58,7 @@ class RLTrainingHelpersTest(unittest.TestCase):
 
         with self.assertRaisesRegex(
             RuntimeError,
-            r'(?s)trl.*0\.12\.1.*requirements-rl\.txt',
+            r'(?s)trl.*0\.12\.1.*setup_rl_environment\.sh',
         ):
             validate_training_dependency_versions(versions)
 
