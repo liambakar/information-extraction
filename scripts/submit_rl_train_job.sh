@@ -20,6 +20,7 @@ sbatch <<EOT
 
 #SBATCH --account=cse
 #SBATCH --partition=ckpt-all
+#SBATCH --requeue
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --mem=128G

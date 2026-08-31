@@ -57,6 +57,7 @@ srun --nodes=1 --ntasks=1 python -m torch.distributed.run \
     --module src.training.train_rl \
     --config "$CONFIG" \
     --run_name "$RUN_NAME" \
-    --output_dir "$OUTPUT_DIR"
+    --output_dir "$OUTPUT_DIR" \
+    --resume_from last
 
 echo "GRPO training finished successfully."
