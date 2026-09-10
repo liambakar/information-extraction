@@ -25,7 +25,7 @@ sbatch \
     --gres=gpu:4 \
     --cpus-per-task=32 \
     --constraint="a40|rtx6k|l40s" \
-    --time=24:00:00 \
+    --time=10-00:00:00 \
     --open-mode=append \
     --chdir=/mmfs1/gscratch/ubicomp/lbakar/information-extraction \
     --export=all \
