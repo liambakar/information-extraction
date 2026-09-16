@@ -2,7 +2,7 @@
     "data": {
         "training_dataset_path": "datasets/nuextract3_outputs.jsonl",
         "dataset_type": "partial",
-        "output_directory": "out/training",
+        "output_directory": "out/qwen0.6b",
         "extraction_template_path": "extraction_templates/template.json",
         "num_workers": 100,
         "max_rows": -1,
@@ -29,11 +29,12 @@
     "wandb": {
         "use_wandb": true,
         "project": "partial-template",
-        "run_name": null,
+        "run_name": "qwen0.6b",
         "entity": null,
         "log_model": false
     },
     "checkpointing": {
-        "resume_from": "last"
+        "resume_from": "last",
+        "save_steps": 10
     }
 }

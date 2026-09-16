@@ -61,7 +61,7 @@ def _optional_batch(value: Any, size: int) -> list[Any]:
 def json_validity_reward(
     completions: Any,
     *,
-    config: RewardConfig = DEFAULT_REWARD_CONFIG,
+    config: RewardConfig,
     **_kwargs: Any,
 ) -> list[float]:
     """Return the configured JSON-validity reward for each completion."""
@@ -82,7 +82,7 @@ def schema_reward(
     ground_truth: Any = None,
     schema_section: Any = None,
     log_extra: Any = None,
-    config: RewardConfig = DEFAULT_REWARD_CONFIG,
+    config: RewardConfig,
     **_kwargs: Any,
 ) -> list[float]:
     """Return unweighted schema scores for a batch of completions."""
@@ -112,7 +112,7 @@ def extraction_reward(
     completions: Any,
     ground_truth: Any,
     *,
-    config: RewardConfig = DEFAULT_REWARD_CONFIG,
+    config: RewardConfig,
     **_kwargs: Any,
 ) -> list[float]:
     """Return unweighted extraction scores for a batch of completions."""
@@ -128,7 +128,7 @@ def hallucination_reward(
     completions: Any,
     ground_truth: Any,
     *,
-    config: RewardConfig = DEFAULT_REWARD_CONFIG,
+    config: RewardConfig,
     **_kwargs: Any,
 ) -> list[float]:
     """Return unweighted hallucination penalties for a batch of completions."""
@@ -145,7 +145,7 @@ def total_reward(
     ground_truth: Any,
     *,
     schema_section: Any = None,
-    config: RewardConfig = DEFAULT_REWARD_CONFIG,
+    config: RewardConfig,
     **_kwargs: Any,
 ) -> list[float]:
     """Return aggregate rewards for a batch of completions."""
@@ -166,7 +166,7 @@ def total_reward(
 def reward_function(
     model_prediction: Any,
     ground_truth: Any,
-    config: RewardConfig = DEFAULT_REWARD_CONFIG,
+    config: RewardConfig,
     schema_section: str | None = None,
 ) -> float:
     """Compatibility wrapper returning the total reward for one prediction."""

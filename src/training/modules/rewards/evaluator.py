@@ -3,7 +3,6 @@ from typing import Any
 
 from src.training.modules.rewards.extraction import score_extraction
 from src.training.modules.rewards.models import (
-    DEFAULT_REWARD_CONFIG,
     RewardConfig,
     RewardResult,
 )
@@ -32,7 +31,7 @@ def parse_json_object(value: Any, *, name: str) -> dict[str, Any]:
 def evaluate_reward(
     prediction: Any,
     ground_truth: Any,
-    config: RewardConfig = DEFAULT_REWARD_CONFIG,
+    config: RewardConfig,
     schema_section: str | None = None,
 ) -> RewardResult:
     """Evaluate one prediction and return its reward with diagnostics."""

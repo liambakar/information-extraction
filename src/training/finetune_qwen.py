@@ -29,9 +29,6 @@ def parse_args():
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--config_file', '--config', type=str, required=True)
-    parser.add_argument('--run_name', type=str)
-    parser.add_argument('--train_path', type=str)
-    parser.add_argument('--output_dir', type=str)
 
     return parser.parse_args()
 
@@ -41,20 +38,14 @@ def main():
 
     config = TrainConfig(args.config_file)
 
-    TRAIN_PATH = (
-        args.train_path if args.train_path else config.data.training_dataset_path
-    )
+    TRAIN_PATH = config.data.training_dataset_path
 
-    OUTPUT_DIR = args.output_dir if args.output_dir else config.data.output_directory
     NUM_WORKERS = config.data.num_workers
     MODEL_NAME = config.model.model_name
     DATASET_TYPE = config.data.dataset_type
     TEMPLATE_PATH = config.data.extraction_template_path
 
-    if args.run_name:
-        config.wandb.run_name = args.run_name
-
-    output_dir = Path(OUTPUT_DIR)
+    output_dir = Path(config.data.output_directory)
     output_dir.mkdir(parents=True, exist_ok=True)
     checkpointing = resolve_checkpointing(
         output_dir=output_dir,
@@ -70,7 +61,7 @@ def main():
 
     print_config(config, logger)
 
-    print(f'[LOG] Output directory: {output_dir}', flush=True)
+    print(f'[LOG] Output directory: {output_dir.resolve()}', flush=True)
     print(f'[LOG] Lightning checkpoint directory: {ckpt_dir}', flush=True)
     print(f'[LOG] Hugging Face export directory: {hf_dir}', flush=True)
     print(f'\n[LOG] Loading tokenizer: {MODEL_NAME}', flush=True)
@@ -181,8 +172,8 @@ def main():
         dirpath=ckpt_dir,
         filename='step-{step:08d}-epoch-{epoch:02d}',
         save_last=True,
-        save_top_k=-1,
-        every_n_train_steps=500,
+        save_top_k=1,
+        every_n_train_steps=config.checkpointing.save_steps,
     )
 
     hf_export_callback = SaveHFModelCallback(output_dir=hf_dir)

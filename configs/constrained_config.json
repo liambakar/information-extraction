@@ -29,11 +29,12 @@
     "wandb": {
         "use_wandb": true,
         "project": "constrained-full-template",
-        "run_name": null,
+        "run_name": "qwen0.6b-constrained",
         "entity": null,
         "log_model": false
     },
     "checkpointing": {
-        "resume_from": "last"
+        "resume_from": "last",
+        "save_steps": 10
     }
 }

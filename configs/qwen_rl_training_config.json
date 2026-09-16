@@ -29,12 +29,13 @@
     "wandb": {
         "use_wandb": true,
         "project": "information-extraction-grpo",
-        "run_name": null,
+        "run_name": "qwen-grpo-v1",
         "entity": null,
         "log_model": false
     },
     "checkpointing": {
-        "resume_from": "last"
+        "resume_from": "last",
+        "save_steps": 10
     },
     "rl": {
         "num_generations": 4,
@@ -42,7 +43,6 @@
         "temperature": 1.0,
         "beta": 0.001,
         "logging_steps": 10,
-        "save_steps": 100,
         "eval_steps": 100,
         "num_completions_to_print": 4,
         "seed": 42,

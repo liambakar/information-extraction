@@ -12,7 +12,6 @@ from packaging.specifiers import SpecifierSet
 from packaging.version import InvalidVersion, Version
 
 from src.training.modules.rewards import (
-    DEFAULT_REWARD_CONFIG,
     RewardConfig,
     build_reward_functions,
     build_reward_weights,
@@ -20,7 +19,6 @@ from src.training.modules.rewards import (
 from src.training.utils.config_parser import TrainConfig
 
 
-SEED = 42
 START_SEQ = '<|im_start|>'
 END_SEQ = '<|im_end|>\n'
 
@@ -46,16 +44,15 @@ RL_SETUP_SCRIPT = 'scripts/setup_rl_environment.sh'
 class RLTrainingSettings:
     """GRPO-specific settings loaded from the config's ``rl`` section."""
 
-    num_generations: int = 4
-    max_completion_length: int = 512
-    temperature: float = 1.0
-    beta: float = 0.0
-    logging_steps: int = 10
-    save_steps: int = 100
-    eval_steps: int = 100
-    num_completions_to_print: int = 4
-    seed: int = SEED
-    use_vllm: bool = False
+    num_generations: int
+    max_completion_length: int
+    temperature: float
+    beta: float
+    logging_steps: int
+    eval_steps: int
+    num_completions_to_print: int
+    seed: int
+    use_vllm: bool
 
 
 def parse_args() -> argparse.Namespace:
@@ -63,28 +60,7 @@ def parse_args() -> argparse.Namespace:
         description='Fine-tune an extraction model with TRL GRPO.',
     )
     parser.add_argument('--config_file', '--config', required=True)
-    parser.add_argument('--reward_config')
-    parser.add_argument('--run_name')
-    parser.add_argument('--train_path')
-    parser.add_argument('--output_dir')
-    parser.add_argument('--resume_from')
-    parser.add_argument('--max_rows', type=int)
-
-    parser.add_argument('--num_generations', type=int)
-    parser.add_argument('--max_completion_length', type=int)
-    parser.add_argument('--temperature', type=float)
-    parser.add_argument('--beta', type=float)
-    parser.add_argument('--logging_steps', type=int)
-    parser.add_argument('--save_steps', type=int)
-    parser.add_argument('--eval_steps', type=int)
-    parser.add_argument('--num_completions_to_print', type=int)
-    parser.add_argument('--seed', type=int)
     parser.add_argument('--dry_run', action='store_true')
-    parser.add_argument(
-        '--use_vllm',
-        action=argparse.BooleanOptionalAction,
-        default=None,
-    )
     return parser.parse_args()
 
 
@@ -223,15 +199,8 @@ def split_records(
     return training, validation
 
 
-def load_reward_config(
-    path: str | None,
-    *,
-    allow_missing_section: bool = False,
-) -> RewardConfig:
-    """Load optional reward overrides from a JSON object."""
-    if path is None:
-        return DEFAULT_REWARD_CONFIG
-
+def load_reward_config(path: str | Path) -> RewardConfig:
+    """Load explicitly configured reward values from a JSON object."""
     with Path(path).open('r', encoding='utf-8') as config_file:
         values = json.load(config_file)
     if not isinstance(values, dict):
@@ -239,8 +208,8 @@ def load_reward_config(
 
     if 'rewards' in values:
         values = values['rewards']
-    elif allow_missing_section:
-        return DEFAULT_REWARD_CONFIG
+    elif 'data' in values:
+        raise ValueError('Training config must contain a rewards section.')
     if not isinstance(values, dict):
         raise ValueError('The rewards config entry must be a JSON object.')
 
@@ -257,7 +226,9 @@ def load_rl_settings(path: str | Path) -> RLTrainingSettings:
     if not isinstance(config_data, dict):
         raise ValueError('Training config must contain a JSON object.')
 
-    values = config_data.get('rl', {})
+    if 'rl' not in config_data:
+        raise ValueError('Training config must contain an rl section.')
+    values = config_data['rl']
     if not isinstance(values, dict):
         raise ValueError('The rl config entry must be a JSON object.')
 
@@ -271,7 +242,7 @@ def load_rl_settings(path: str | Path) -> RLTrainingSettings:
 
 
 def validate_rl_settings(settings: RLTrainingSettings) -> None:
-    """Validate GRPO settings loaded from config or command-line overrides."""
+    """Validate GRPO settings loaded from config."""
 
     if settings.num_generations <= 1:
         raise ValueError('rl.num_generations must be greater than one.')
@@ -281,16 +252,11 @@ def validate_rl_settings(settings: RLTrainingSettings) -> None:
         raise ValueError('rl.temperature must be positive.')
     if settings.beta < 0:
         raise ValueError('rl.beta cannot be negative.')
-    for name in ('logging_steps', 'save_steps', 'eval_steps'):
+    for name in ('logging_steps', 'eval_steps'):
         if getattr(settings, name) <= 0:
             raise ValueError(f'rl.{name} must be positive.')
     if settings.num_completions_to_print < 0:
         raise ValueError('rl.num_completions_to_print cannot be negative.')
-
-
-def configured_value(command_line_value: Any, config_value: Any) -> Any:
-    """Prefer an explicit command-line value over its config value."""
-    return config_value if command_line_value is None else command_line_value
 
 
 def find_last_checkpoint(output_dir: str | Path) -> str | None:
@@ -441,52 +407,18 @@ def main() -> None:
     args = parse_args()
     config = TrainConfig(args.config_file)
     rl_settings = load_rl_settings(args.config_file)
-    reward_config = (
-        load_reward_config(args.reward_config)
-        if args.reward_config
-        else load_reward_config(args.config_file, allow_missing_section=True)
-    )
+    reward_config = load_reward_config(args.config_file)
 
-    num_generations = configured_value(
-        args.num_generations,
-        rl_settings.num_generations,
-    )
-    max_completion_length = configured_value(
-        args.max_completion_length,
-        rl_settings.max_completion_length,
-    )
-    temperature = configured_value(args.temperature, rl_settings.temperature)
-    beta = configured_value(args.beta, rl_settings.beta)
-    logging_steps = configured_value(args.logging_steps, rl_settings.logging_steps)
-    save_steps = configured_value(args.save_steps, rl_settings.save_steps)
-    eval_steps = configured_value(args.eval_steps, rl_settings.eval_steps)
-    num_completions_to_print = configured_value(
-        args.num_completions_to_print,
-        rl_settings.num_completions_to_print,
-    )
-    seed = configured_value(args.seed, rl_settings.seed)
-    use_vllm = configured_value(args.use_vllm, rl_settings.use_vllm)
-    validate_rl_settings(
-        RLTrainingSettings(
-            num_generations=num_generations,
-            max_completion_length=max_completion_length,
-            temperature=temperature,
-            beta=beta,
-            logging_steps=logging_steps,
-            save_steps=save_steps,
-            eval_steps=eval_steps,
-            num_completions_to_print=num_completions_to_print,
-            seed=seed,
-            use_vllm=use_vllm,
-        )
-    )
+    train_path = config.data.training_dataset_path
+    output_dir = Path(config.data.output_directory)
+    if os.environ.get('RANK', '0') == '0':
+        print(f'[LOG] GRPO output directory: {output_dir.resolve()}', flush=True)
+    run_name = config.wandb.run_name
+    if os.environ.get('RANK', '0') == '0':
+        print(f'[LOG] GRPO run name: {run_name}', flush=True)
+    max_rows = config.data.max_rows
 
-    train_path = args.train_path or config.data.training_dataset_path
-    output_dir = Path(args.output_dir or config.data.output_directory)
-    run_name = args.run_name or config.wandb.run_name
-    max_rows = config.data.max_rows if args.max_rows is None else args.max_rows
-
-    validate_generation_batch(config, num_generations)
+    validate_generation_batch(config, rl_settings.num_generations)
 
     with Path(config.data.extraction_template_path).open(
         'r', encoding='utf-8'
@@ -495,11 +427,11 @@ def main() -> None:
 
     rows = load_jsonl(train_path)
     records = build_rl_records(rows, template, config.data.dataset_type)
-    records = select_rows(records, max_rows, seed)
+    records = select_rows(records, max_rows, rl_settings.seed)
     training_records, validation_records = split_records(
         records,
         config.data.validation_split,
-        seed,
+        rl_settings.seed,
     )
     if not training_records:
         raise ValueError('The RL training dataset is empty.')
@@ -554,26 +486,27 @@ def main() -> None:
         per_device_eval_batch_size=config.optimization.batch_size,
         gradient_accumulation_steps=config.optimization.accumulate_grad_batches,
         num_train_epochs=config.optimization.max_epochs,
-        max_completion_length=max_completion_length,
-        num_generations=num_generations,
-        temperature=temperature,
-        beta=beta,
+        max_completion_length=rl_settings.max_completion_length,
+        num_generations=rl_settings.num_generations,
+        temperature=rl_settings.temperature,
+        beta=rl_settings.beta,
         reward_weights=reward_weights,
         remove_unused_columns=False,
         bf16=True,
         gradient_checkpointing=True,
         ddp_find_unused_parameters=False,
-        logging_steps=logging_steps,
+        logging_steps=rl_settings.logging_steps,
         log_completions=True,
-        num_completions_to_print=num_completions_to_print,
+        num_completions_to_print=rl_settings.num_completions_to_print,
         log_unique_prompts=True,
         save_strategy='steps',
-        save_steps=save_steps,
+        save_steps=config.checkpointing.save_steps,
+        save_total_limit=2,
         eval_strategy='steps' if eval_dataset is not None else 'no',
-        eval_steps=eval_steps if eval_dataset is not None else None,
+        eval_steps=rl_settings.eval_steps if eval_dataset is not None else None,
         report_to=report_to,
-        seed=seed,
-        use_vllm=use_vllm,
+        seed=rl_settings.seed,
+        use_vllm=rl_settings.use_vllm,
     )
 
     trainer = GRPOTrainer(
@@ -585,7 +518,7 @@ def main() -> None:
         processing_class=tokenizer,
     )
 
-    requested_resume = args.resume_from or config.checkpointing.resume_from
+    requested_resume = config.checkpointing.resume_from
     resume_checkpoint = resolve_resume_checkpoint(output_dir, requested_resume)
     if requested_resume == 'last' and resume_checkpoint is None:
         print('[LOG] No GRPO checkpoint found; starting fresh.', flush=True)

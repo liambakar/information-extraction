@@ -72,6 +72,7 @@ class RLTrainingHelpersTest(unittest.TestCase):
         self.assertEqual(train_config.data.dataset_type, 'full')
         self.assertEqual(rl_settings.num_generations, 4)
         self.assertEqual(rl_settings.beta, 0.001)
+        self.assertEqual(train_config.checkpointing.save_steps, 10)
         self.assertEqual(reward_config.extraction_weight, 0.7)
 
     def test_prompt_matches_existing_qwen_message_format(self):
@@ -118,17 +119,34 @@ class RLTrainingHelpersTest(unittest.TestCase):
         self.assertEqual(len(first_split[0]), 8)
         self.assertEqual(len(first_split[1]), 2)
 
-    def test_reward_config_accepts_nested_reward_values(self):
+    def test_reward_config_requires_all_nested_reward_values(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             path = Path(temp_dir) / 'rewards.json'
-            path.write_text(
-                json.dumps({'rewards': {'correct_value': 2.0}}),
-                encoding='utf-8',
-            )
+            values = json.loads(
+                (REPO_ROOT / 'configs' / 'qwen_rl_training_config.json').read_text()
+            )['rewards']
+            values['correct_value'] = 2.0
+            path.write_text(json.dumps({'rewards': values}), encoding='utf-8')
 
             config = load_reward_config(str(path))
 
         self.assertEqual(config.correct_value, 2.0)
+
+    def test_missing_reward_value_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / 'rewards.json'
+            path.write_text(json.dumps({'rewards': {'correct_value': 2.0}}))
+
+            with self.assertRaisesRegex(ValueError, 'Invalid reward config'):
+                load_reward_config(path)
+
+    def test_missing_rl_value_is_rejected(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / 'training.json'
+            path.write_text(json.dumps({'rl': {'num_generations': 4}}))
+
+            with self.assertRaisesRegex(ValueError, 'Invalid rl config'):
+                load_rl_settings(path)
 
     def test_last_checkpoint_uses_the_largest_step(self):
         with tempfile.TemporaryDirectory() as temp_dir:

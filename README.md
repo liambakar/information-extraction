@@ -6,4 +6,6 @@
 
 # information extraction training
 
-`./scripts/submit_train_job.sh configs/qwen_training_config.json qwen0.6b out/qwen0.6b/`
+`./scripts/submit_train_job.sh configs/qwen_training_config.json`
+
+`./scripts/submit_rl_train_job.sh configs/qwen_rl_training_config.json`

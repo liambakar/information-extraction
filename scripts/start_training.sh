@@ -2,14 +2,15 @@
 set -e
 
 CONFIG=$1
-RUN_NAME=$2
-OUTPUT_DIR=$3
+
+if [ "$#" -ne 1 ] || [ -z "$CONFIG" ]; then
+    echo "Usage: $0 CONFIG" >&2
+    exit 2
+fi
 
 echo "======================================"
 echo "Starting ConvFill training job"
 echo "Config:      $CONFIG"
-echo "Run name:    $RUN_NAME"
-echo "Output dir:  $OUTPUT_DIR"
 echo "Node:        $(hostname)"
 echo "======================================"
 
@@ -37,9 +38,6 @@ ps -ef | grep python
 # ----------------------------
 # Run training
 # ----------------------------
-srun python src/training/finetune_qwen.py \
-    --config "$CONFIG" \
-    --run_name "$RUN_NAME" \
-    --output_dir "$OUTPUT_DIR"
+srun python src/training/finetune_qwen.py --config "$CONFIG"
 
 echo "Training finished successfully."

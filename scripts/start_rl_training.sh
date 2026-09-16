@@ -2,19 +2,15 @@
 set -e
 
 CONFIG=$1
-RUN_NAME=$2
-OUTPUT_DIR=$3
 
-if [ -z "$CONFIG" ] || [ -z "$RUN_NAME" ] || [ -z "$OUTPUT_DIR" ]; then
-    echo "Usage: $0 CONFIG RUN_NAME OUTPUT_DIR" >&2
+if [ "$#" -ne 1 ] || [ -z "$CONFIG" ]; then
+    echo "Usage: $0 CONFIG" >&2
     exit 2
 fi
 
 echo "======================================"
 echo "Starting GRPO training job"
 echo "Config:      $CONFIG"
-echo "Run name:    $RUN_NAME"
-echo "Output dir:  $OUTPUT_DIR"
 echo "Node:        $(hostname)"
 echo "======================================"
 
@@ -55,9 +51,6 @@ srun --nodes=1 --ntasks=1 python -m torch.distributed.run \
     --nnodes=1 \
     --nproc-per-node="$NPROC_PER_NODE" \
     --module src.training.train_rl \
-    --config "$CONFIG" \
-    --run_name "$RUN_NAME" \
-    --output_dir "$OUTPUT_DIR" \
-    --resume_from last
+    --config "$CONFIG"
 
 echo "GRPO training finished successfully."

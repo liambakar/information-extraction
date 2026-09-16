@@ -1,5 +1,5 @@
 import json
-from typing import Literal, Optional, Any
+from typing import Literal, Any
 from pydantic import BaseModel, Field
 
 
@@ -16,7 +16,7 @@ class DataConfig(BaseModel):
 class ModelConfig(BaseModel):
     model_name: str
     max_length: int
-    lightning_module_type: Literal['standard', 'constrained'] = 'standard'
+    lightning_module_type: Literal['standard', 'constrained']
 
 
 class OptimizationConfig(BaseModel):
@@ -37,13 +37,14 @@ class HardwareConfig(BaseModel):
 class WandbConfig(BaseModel):
     use_wandb: bool
     project: str
-    run_name: Optional[str] = None  # Allows null/None
-    entity: Optional[str] = None  # Allows null/None
+    run_name: str
+    entity: str | None
     log_model: bool
 
 
 class CheckpointingConfig(BaseModel):
-    resume_from: Optional[str] = None
+    resume_from: str | None
+    save_steps: int = Field(gt=0)
 
 
 class TrainConfig(BaseModel):

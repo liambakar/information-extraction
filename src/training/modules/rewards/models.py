@@ -5,22 +5,22 @@ from dataclasses import dataclass
 class RewardConfig:
     """Weights and field-level outcomes used by the reward evaluator."""
 
-    valid_json: float = 0.1
-    invalid_json: float = -1.0
+    valid_json: float
+    invalid_json: float
 
-    json_validity_weight: float = 1.0
-    schema_weight: float = 0.1
-    extraction_weight: float = 0.7
-    hallucination_weight: float = 0.2
+    json_validity_weight: float
+    schema_weight: float
+    extraction_weight: float
+    hallucination_weight: float
 
-    correct_value: float = 1.0
-    correct_null: float = 0.25
-    omission: float = -0.5
-    hallucination: float = -1.0
-    incorrect_value: float = -0.75
+    correct_value: float
+    correct_null: float
+    omission: float
+    hallucination: float
+    incorrect_value: float
 
-    case_sensitive: bool = False
-    list_order_sensitive: bool = False
+    case_sensitive: bool
+    list_order_sensitive: bool
 
 
 @dataclass(frozen=True)
@@ -42,4 +42,18 @@ class RewardResult:
     predicted_fields: int = 0
 
 
-DEFAULT_REWARD_CONFIG = RewardConfig()
+DEFAULT_REWARD_CONFIG = RewardConfig(
+    valid_json=0.1,
+    invalid_json=-1.0,
+    json_validity_weight=1.0,
+    schema_weight=0.1,
+    extraction_weight=0.7,
+    hallucination_weight=0.2,
+    correct_value=1.0,
+    correct_null=0.25,
+    omission=-0.5,
+    hallucination=-1.0,
+    incorrect_value=-0.75,
+    case_sensitive=False,
+    list_order_sensitive=False,
+)
