@@ -29,7 +29,7 @@ def score_extraction(
     ground_truth: dict[str, Any],
     config: RewardConfig,
 ) -> ExtractionScore:
-    """Score matching, omitted, incorrect, and hallucinated leaf values."""
+    """Score agreement with the reference extraction."""
     prediction = flatten_leaves(model_prediction)
     truth = flatten_leaves(ground_truth)
 
@@ -64,30 +64,18 @@ def score_extraction(
             extraction_points += config.incorrect_value
 
     predicted_fields = sum(not is_empty(value) for value in prediction.values())
-    hallucinated_values = sum(
-        not is_empty(predicted_value)
-        and (path not in truth or is_empty(truth[path]))
-        for path, predicted_value in prediction.items()
-    )
-
     ground_truth_fields = len(truth)
     extraction_score = (
         extraction_points / ground_truth_fields if ground_truth_fields else 0.0
     )
-    hallucination_score = (
-        config.hallucination * hallucinated_values / predicted_fields
-        if predicted_fields
-        else 0.0
-    )
-
     return ExtractionScore(
         extraction=extraction_score,
-        hallucination=hallucination_score,
+        hallucination=0.0,
         correct_values=correct_values,
         correct_nulls=correct_nulls,
         omissions=omissions,
         incorrect_values=incorrect_values,
-        hallucinated_values=hallucinated_values,
+        hallucinated_values=0,
         ground_truth_fields=ground_truth_fields,
         predicted_fields=predicted_fields,
     )

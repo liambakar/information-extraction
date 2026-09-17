@@ -122,6 +122,7 @@ def build_rl_records(
                     'prompt': build_prompt(template, utterance),
                     'ground_truth': json.dumps(extraction, ensure_ascii=False),
                     'schema_section': '',
+                    'utterance': utterance,
                 }
             )
             continue
@@ -151,6 +152,7 @@ def build_rl_records(
                     'prompt': build_prompt(section_template, utterance),
                     'ground_truth': json.dumps(section_truth, ensure_ascii=False),
                     'schema_section': section,
+                    'utterance': utterance,
                 }
             )
 

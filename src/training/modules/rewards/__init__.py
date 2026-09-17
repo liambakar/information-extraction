@@ -128,15 +128,19 @@ def hallucination_reward(
     completions: Any,
     ground_truth: Any,
     *,
+    utterance: Any = None,
     config: RewardConfig,
     **_kwargs: Any,
 ) -> list[float]:
     """Return unweighted hallucination penalties for a batch of completions."""
     batch = _completion_batch(completions)
     truths = _ground_truth_batch(ground_truth, len(batch))
+    utterances = _optional_batch(utterance, len(batch))
     return [
-        evaluate_reward(_completion_text(completion), truth, config).hallucination
-        for completion, truth in zip(batch, truths)
+        evaluate_reward(
+            _completion_text(completion), truth, config, utterance=text,
+        ).hallucination
+        for completion, truth, text in zip(batch, truths, utterances)
     ]
 
 
@@ -145,6 +149,7 @@ def total_reward(
     ground_truth: Any,
     *,
     schema_section: Any = None,
+    utterance: Any = None,
     config: RewardConfig,
     **_kwargs: Any,
 ) -> list[float]:
@@ -152,14 +157,18 @@ def total_reward(
     batch = _completion_batch(completions)
     truths = _ground_truth_batch(ground_truth, len(batch))
     sections = _optional_batch(schema_section, len(batch))
+    utterances = _optional_batch(utterance, len(batch))
     return [
         evaluate_reward(
             _completion_text(completion),
             truth,
             config,
             schema_section=section or None,
+            utterance=text,
         ).total
-        for completion, truth, section in zip(batch, truths, sections)
+        for completion, truth, section, text in zip(
+            batch, truths, sections, utterances
+        )
     ]
 
 
@@ -168,6 +177,7 @@ def reward_function(
     ground_truth: Any,
     config: RewardConfig,
     schema_section: str | None = None,
+    utterance: str | None = None,
 ) -> float:
     """Compatibility wrapper returning the total reward for one prediction."""
     return evaluate_reward(
@@ -175,6 +185,7 @@ def reward_function(
         ground_truth,
         config,
         schema_section=schema_section,
+        utterance=utterance,
     ).total
 
 

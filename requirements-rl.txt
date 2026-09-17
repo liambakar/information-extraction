@@ -2,6 +2,7 @@
 # PyTorch wheel separately.
 trl==1.10.0
 transformers==5.13.1
+sentencepiece>=0.2,<1
 datasets==4.7.0
 accelerate>=1.4.0,<2
 packaging>20.0

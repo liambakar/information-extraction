@@ -6,6 +6,7 @@ from src.training.modules.rewards.models import (
     RewardConfig,
     RewardResult,
 )
+from src.training.modules.rewards.semantic import score_semantic_hallucinations
 from src.training.modules.rewards.structure import score_schema
 
 
@@ -33,6 +34,7 @@ def evaluate_reward(
     ground_truth: Any,
     config: RewardConfig,
     schema_section: str | None = None,
+    utterance: str | None = None,
 ) -> RewardResult:
     """Evaluate one prediction and return its reward with diagnostics."""
     truth = parse_json_object(ground_truth, name='ground_truth')
@@ -50,12 +52,20 @@ def evaluate_reward(
 
     schema_score = score_schema(parsed_prediction, section=schema_section)
     extraction = score_extraction(parsed_prediction, truth, config)
+    hallucination, hallucinated_values = (
+        score_semantic_hallucinations(
+            parsed_prediction, utterance, config.hallucination,
+            config.nli_confidence_threshold,
+        )
+        if utterance is not None
+        else (0.0, 0)
+    )
 
     total = (
         config.json_validity_weight * config.valid_json
         + config.schema_weight * schema_score
         + config.extraction_weight * extraction.extraction
-        + config.hallucination_weight * extraction.hallucination
+        + config.hallucination_weight * hallucination
     )
 
     return RewardResult(
@@ -63,12 +73,12 @@ def evaluate_reward(
         json_validity=config.valid_json,
         schema=schema_score,
         extraction=extraction.extraction,
-        hallucination=extraction.hallucination,
+        hallucination=hallucination,
         correct_values=extraction.correct_values,
         correct_nulls=extraction.correct_nulls,
         omissions=extraction.omissions,
         incorrect_values=extraction.incorrect_values,
-        hallucinated_values=extraction.hallucinated_values,
+        hallucinated_values=hallucinated_values,
         ground_truth_fields=extraction.ground_truth_fields,
         predicted_fields=extraction.predicted_fields,
     )

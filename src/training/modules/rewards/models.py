@@ -21,6 +21,7 @@ class RewardConfig:
 
     case_sensitive: bool
     list_order_sensitive: bool
+    nli_confidence_threshold: float
 
 
 @dataclass(frozen=True)
@@ -56,4 +57,5 @@ DEFAULT_REWARD_CONFIG = RewardConfig(
     incorrect_value=-0.75,
     case_sensitive=False,
     list_order_sensitive=False,
+    nli_confidence_threshold=0.7,
 )

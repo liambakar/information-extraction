@@ -59,6 +59,7 @@
         "correct_null": 0.25,
         "omission": -0.5,
         "hallucination": -1.0,
+        "nli_confidence_threshold": 0.7,
         "incorrect_value": -0.75,
         "case_sensitive": false,
         "list_order_sensitive": false
