@@ -6,7 +6,7 @@
         "extraction_template_path": "extraction_templates/template.json",
         "num_workers": 8,
         "max_rows": -1,
-        "validation_split": 0.05
+        "validation_split": 0.001
     },
     "model": {
         "model_name": "lbakar/health-log-extraction",
