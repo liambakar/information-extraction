@@ -1,4 +1,5 @@
 import json
+import os
 import torch
 import wandb
 
@@ -14,6 +15,8 @@ def build_logger(output_dir, wandb_config: WandbConfig) -> WandbLogger | None:
     if not wandb_config.use_wandb:
         print('W&B logging disabled.', flush=True)
         return None
+
+    os.environ['WANDB__SERVICE_WAIT'] = str(wandb_config.service_wait_seconds)
 
     try:
         from lightning.pytorch.loggers import WandbLogger

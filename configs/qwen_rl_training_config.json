@@ -31,7 +31,8 @@
         "project": "information-extraction-grpo",
         "run_name": "qwen-grpo-v1",
         "entity": null,
-        "log_model": false
+        "log_model": false,
+        "service_wait_seconds": 300
     },
     "checkpointing": {
         "resume_from": "last",

@@ -40,6 +40,7 @@ class WandbConfig(BaseModel):
     run_name: str
     entity: str | None
     log_model: bool
+    service_wait_seconds: float
 
 
 class CheckpointingConfig(BaseModel):

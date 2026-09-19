@@ -31,7 +31,8 @@
         "project": "partial-template",
         "run_name": "qwen0.6b",
         "entity": null,
-        "log_model": false
+        "log_model": false,
+        "service_wait_seconds": 300
     },
     "checkpointing": {
         "resume_from": "last",

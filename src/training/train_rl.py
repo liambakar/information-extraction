@@ -472,6 +472,9 @@ def main() -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     report_to = ['wandb'] if config.wandb.use_wandb else ['none']
     if config.wandb.use_wandb:
+        os.environ['WANDB__SERVICE_WAIT'] = str(
+            config.wandb.service_wait_seconds
+        )
         os.environ.setdefault('WANDB_PROJECT', config.wandb.project)
         if config.wandb.entity:
             os.environ.setdefault('WANDB_ENTITY', config.wandb.entity)
