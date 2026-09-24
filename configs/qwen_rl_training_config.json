@@ -17,8 +17,8 @@
         "lr": 0.000001,
         "weight_decay": 0.01,
         "warmup_steps": 100,
-        "batch_size": 1,
-        "accumulate_grad_batches": 8,
+        "batch_size": 4,
+        "accumulate_grad_batches": 2,
         "max_epochs": 1,
         "patience": 1
     },
@@ -36,15 +36,15 @@
     },
     "checkpointing": {
         "resume_from": "last",
-        "save_steps": 10
+        "save_steps": 500
     },
     "rl": {
         "num_generations": 4,
-        "max_completion_length": 512,
+        "max_completion_length": 256,
         "temperature": 1.0,
         "beta": 0.001,
         "logging_steps": 10,
-        "eval_steps": 100,
+        "eval_steps": 500,
         "num_completions_to_print": 4,
         "seed": 42,
         "use_vllm": false

@@ -9,6 +9,9 @@ from src.training.modules.rewards.models import (
     RewardConfig,
     RewardResult,
 )
+from src.training.modules.rewards.semantic import (
+    score_semantic_hallucination_batch,
+)
 from src.training.modules.rewards.structure import score_schema
 
 
@@ -118,10 +121,23 @@ def extraction_reward(
     """Return unweighted extraction scores for a batch of completions."""
     batch = _completion_batch(completions)
     truths = _ground_truth_batch(ground_truth, len(batch))
-    return [
-        evaluate_reward(_completion_text(completion), truth, config).extraction
-        for completion, truth in zip(batch, truths)
-    ]
+    rewards = []
+    for completion, truth in zip(batch, truths):
+        try:
+            prediction = parse_json_object(
+                _completion_text(completion), name='completion',
+            )
+        except ValueError:
+            rewards.append(0.0)
+            continue
+        rewards.append(
+            score_extraction(
+                prediction,
+                parse_json_object(truth, name='ground_truth'),
+                config,
+            ).extraction
+        )
+    return rewards
 
 
 def hallucination_reward(
@@ -134,13 +150,26 @@ def hallucination_reward(
 ) -> list[float]:
     """Return unweighted hallucination penalties for a batch of completions."""
     batch = _completion_batch(completions)
-    truths = _ground_truth_batch(ground_truth, len(batch))
+    _ground_truth_batch(ground_truth, len(batch))
     utterances = _optional_batch(utterance, len(batch))
+    predictions = []
+    for completion in batch:
+        try:
+            prediction = parse_json_object(
+                _completion_text(completion), name='completion',
+            )
+        except ValueError:
+            prediction = {}
+        predictions.append(prediction)
+
     return [
-        evaluate_reward(
-            _completion_text(completion), truth, config, utterance=text,
-        ).hallucination
-        for completion, truth, text in zip(batch, truths, utterances)
+        score
+        for score, _ in score_semantic_hallucination_batch(
+            predictions,
+            utterances,
+            config.hallucination,
+            config.nli_confidence_threshold,
+        )
     ]
 
 

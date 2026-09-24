@@ -56,29 +56,93 @@ def _model():
 
     tokenizer = AutoTokenizer.from_pretrained(NLI_MODEL)
     model = AutoModelForSequenceClassification.from_pretrained(NLI_MODEL)
+    device = torch.device(
+        'cuda', torch.cuda.current_device()
+    ) if torch.cuda.is_available() else torch.device('cpu')
+    model.to(device)
     model.eval()
-    return tokenizer, model, torch
+    return tokenizer, model, torch, device
+
+
+def classify_claim_pairs(
+    pairs: list[tuple[str, str]],
+) -> list[tuple[str, float]]:
+    """Classify premise/hypothesis pairs in shared, deduplicated batches."""
+    if not pairs:
+        return []
+
+    tokenizer, model, torch, device = _model()
+    unique_pairs = list(dict.fromkeys(pairs))
+    predictions = {}
+
+    for start in range(0, len(unique_pairs), 32):
+        batch = unique_pairs[start : start + 32]
+        premises, hypotheses = zip(*batch)
+        inputs = tokenizer(
+            list(premises), list(hypotheses), padding=True, truncation=True,
+            return_tensors='pt',
+        )
+        inputs = {key: value.to(device) for key, value in inputs.items()}
+        with torch.inference_mode():
+            probabilities = model(**inputs).logits.softmax(dim=-1)
+        confidences, indices = probabilities.max(dim=-1)
+        for pair, index, confidence in zip(
+            batch,
+            indices.cpu().tolist(),
+            confidences.float().cpu().tolist(),
+        ):
+            predictions[pair] = (
+                model.config.id2label[index].lower(),
+                confidence,
+            )
+
+    return [predictions[pair] for pair in pairs]
 
 
 def classify_claims(utterance: str, claims: list[str]) -> list[tuple[str, float]]:
     """Return the most likely NLI label and its confidence for each claim."""
-    if not claims:
-        return []
+    return classify_claim_pairs([(utterance, claim) for claim in claims])
 
-    tokenizer, model, torch = _model()
-    labels = []
-    for start in range(0, len(claims), 16):
-        batch = claims[start : start + 16]
-        inputs = tokenizer(
-            [utterance] * len(batch), batch, padding=True, truncation=True,
-            return_tensors='pt',
-        )
-        with torch.inference_mode():
-            probabilities = model(**inputs).logits.softmax(dim=-1)
-        for scores in probabilities:
-            index = int(scores.argmax())
-            labels.append((model.config.id2label[index].lower(), float(scores[index])))
-    return labels
+
+def score_semantic_hallucination_batch(
+    predictions: list[dict[str, Any]],
+    utterances: list[str | None],
+    penalty: float,
+    confidence_threshold: float,
+) -> list[tuple[float, int]]:
+    """Score a completion batch with one set of NLI inference calls."""
+    if len(predictions) != len(utterances):
+        raise ValueError('predictions and utterances must have the same length.')
+
+    claims_by_prediction = [
+        prediction_claims(prediction) if utterance is not None else []
+        for prediction, utterance in zip(predictions, utterances)
+    ]
+    pairs = [
+        (utterance, claim)
+        for utterance, claims in zip(utterances, claims_by_prediction)
+        if utterance is not None
+        for claim in claims
+    ]
+    classifications = iter(classify_claim_pairs(pairs))
+    scores = []
+
+    for claims in claims_by_prediction:
+        results = [next(classifications) for _ in claims]
+        if not results:
+            scores.append((0.0, 0))
+            continue
+
+        confident = [
+            label if confidence >= confidence_threshold else 'uncertain'
+            for label, confidence in results
+        ]
+        contradictions = confident.count('contradiction')
+        unsupported = confident.count('neutral')
+        score = penalty * (contradictions + 0.5 * unsupported) / len(claims)
+        scores.append((score, contradictions + unsupported))
+
+    return scores
 
 
 def score_semantic_hallucinations(
@@ -86,16 +150,6 @@ def score_semantic_hallucinations(
     confidence_threshold: float,
 ) -> tuple[float, int]:
     """Penalize confident contradiction or lack of support, not paraphrases."""
-    claims = prediction_claims(prediction)
-    if not claims:
-        return 0.0, 0
-
-    results = classify_claims(utterance, claims)
-    confident = [
-        label if confidence >= confidence_threshold else 'uncertain'
-        for label, confidence in results
-    ]
-    contradictions = confident.count('contradiction')
-    unsupported = confident.count('neutral')
-    score = penalty * (contradictions + 0.5 * unsupported) / len(claims)
-    return score, contradictions + unsupported
+    return score_semantic_hallucination_batch(
+        [prediction], [utterance], penalty, confidence_threshold,
+    )[0]
