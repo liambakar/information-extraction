@@ -13,7 +13,17 @@ from src.training.utils.normalization import flatten_leaves, is_empty, values_ma
 
 DEFAULT_DATASET = 'datasets/nuextract3_validation_utterance_outputs.jsonl'
 DEFAULT_TEMPLATE = 'extraction_templates/template.json'
-DEFAULT_MODEL = 'lbakar/health-log-extraction'
+DEFAULT_MODELS = {
+    'finetuned': 'lbakar/health-log-extraction',
+    'qwen': 'Qwen/Qwen3-0.6B',
+    'qwen-vl': 'Qwen/Qwen3.5-4B',
+    'nuextract': 'numind/NuExtract3',
+}
+QWEN_SYSTEM_PROMPT = (
+    'Extract structured health information from the user text. Return only one '
+    'valid JSON object with exactly the requested keys. Use null for a missing '
+    'scalar and [] for a missing list. Do not invent unsupported information.'
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -22,13 +32,22 @@ def parse_args() -> argparse.Namespace:
             'Generate health-log extractions and score them against JSONL labels.'
         )
     )
-    parser.add_argument('--model', default=DEFAULT_MODEL)
+    parser.add_argument(
+        '--mode',
+        choices=DEFAULT_MODELS,
+        default='finetuned',
+        help='Select the model-specific prompt and loading protocol.',
+    )
+    parser.add_argument(
+        '--model',
+        help='Override the selected mode\'s default Hugging Face model.',
+    )
     parser.add_argument('--dataset', default=DEFAULT_DATASET)
     parser.add_argument('--template', default=DEFAULT_TEMPLATE)
     parser.add_argument('--reward-config')
     parser.add_argument('--output')
     parser.add_argument('--max-rows', type=int)
-    parser.add_argument('--batch-size', type=int, default=4)
+    parser.add_argument('--batch-size', type=int)
     parser.add_argument('--max-new-tokens', type=int, default=512)
     parser.add_argument(
         '--device',
@@ -38,10 +57,27 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def generate_predictions(
+def qwen_messages(
+    template: dict[str, Any], utterance: str
+) -> list[dict[str, str]]:
+    return [
+        {'role': 'system', 'content': QWEN_SYSTEM_PROMPT},
+        {
+            'role': 'user',
+            'content': (
+                f'Template:\n{json.dumps(template, indent=4, ensure_ascii=False)}'
+                f'\n\nHealth log:\n{utterance}'
+            ),
+        },
+    ]
+
+
+def generate_causal_predictions(
     model_name: str,
-    prompts: list[str],
+    rows: list[dict[str, Any]],
+    template: dict[str, Any],
     *,
+    mode: str,
     batch_size: int,
     max_new_tokens: int,
     device_name: str,
@@ -68,6 +104,19 @@ def generate_predictions(
     )
     model.eval()
 
+    prompts = (
+        [build_prompt(template, row['utterance']) for row in rows]
+        if mode == 'finetuned'
+        else [
+            tokenizer.apply_chat_template(
+                qwen_messages(template, row['utterance']),
+                tokenize=False,
+                add_generation_prompt=True,
+                enable_thinking=False,
+            )
+            for row in rows
+        ]
+    )
     predictions = []
     for start in range(0, len(prompts), batch_size):
         batch = prompts[start : start + batch_size]
@@ -95,6 +144,84 @@ def generate_predictions(
         )
 
     return [prediction.strip() for prediction in predictions]
+
+
+def generate_nuextract_predictions(
+    model_name: str,
+    rows: list[dict[str, Any]],
+    template: dict[str, Any],
+    *,
+    mode: str,
+    max_new_tokens: int,
+    device_name: str,
+) -> list[str]:
+    import torch
+    from transformers import AutoModelForMultimodalLM, AutoProcessor
+
+    if device_name == 'auto':
+        device_name = (
+            'cuda'
+            if torch.cuda.is_available()
+            else 'mps'
+            if torch.backends.mps.is_available()
+            else 'cpu'
+        )
+
+    print(f'Loading {model_name} on {device_name}...', flush=True)
+    processor = AutoProcessor.from_pretrained(model_name, trust_remote_code=True)
+    model = AutoModelForMultimodalLM.from_pretrained(
+        model_name,
+        dtype='auto',
+        trust_remote_code=True,
+    ).to(device_name)
+    model.eval()
+
+    template_text = json.dumps(template, indent=4, ensure_ascii=False)
+    predictions = []
+    for index, row in enumerate(rows, start=1):
+        if mode == 'nuextract':
+            messages = [
+                {
+                    'role': 'user',
+                    'content': [{'type': 'text', 'text': row['utterance']}],
+                }
+            ]
+            template_args = {'template': template_text}
+        else:
+            messages = [
+                {
+                    'role': message['role'],
+                    'content': [{'type': 'text', 'text': message['content']}],
+                }
+                for message in qwen_messages(template, row['utterance'])
+            ]
+            template_args = {}
+        inputs = processor.apply_chat_template(
+            messages,
+            add_generation_prompt=True,
+            tokenize=True,
+            return_dict=True,
+            return_tensors='pt',
+            enable_thinking=False,
+            **template_args,
+        ).to(device_name)
+        with torch.inference_mode():
+            output_ids = model.generate(
+                **inputs,
+                max_new_tokens=max_new_tokens,
+                do_sample=False,
+            )
+        generated_ids = output_ids[:, inputs['input_ids'].shape[1] :]
+        predictions.append(
+            processor.batch_decode(
+                generated_ids,
+                skip_special_tokens=True,
+                clean_up_tokenization_spaces=False,
+            )[0].strip()
+        )
+        print(f'Generated {index}/{len(rows)}', flush=True)
+
+    return predictions
 
 
 def summarize(
@@ -241,8 +368,17 @@ def print_summary(summary: dict[str, Any]) -> None:
 
 def main() -> None:
     args = parse_args()
-    if args.batch_size <= 0 or args.max_new_tokens <= 0:
+    batch_size = (
+        args.batch_size
+        if args.batch_size is not None
+        else 1
+        if args.mode in ('nuextract', 'qwen-vl')
+        else 4
+    )
+    if batch_size <= 0 or args.max_new_tokens <= 0:
         raise ValueError('--batch-size and --max-new-tokens must be positive.')
+    if args.mode in ('nuextract', 'qwen-vl') and batch_size != 1:
+        raise ValueError('Multimodal validation currently requires --batch-size 1.')
 
     rows = load_jsonl(args.dataset)
     if args.max_rows is not None:
@@ -267,14 +403,26 @@ def main() -> None:
         if args.reward_config
         else DEFAULT_REWARD_CONFIG
     )
-    prompts = [build_prompt(template, row['utterance']) for row in rows]
-    predictions = generate_predictions(
-        args.model,
-        prompts,
-        batch_size=args.batch_size,
-        max_new_tokens=args.max_new_tokens,
-        device_name=args.device,
-    )
+    model_name = args.model or DEFAULT_MODELS[args.mode]
+    if args.mode in ('nuextract', 'qwen-vl'):
+        predictions = generate_nuextract_predictions(
+            model_name,
+            rows,
+            template,
+            mode=args.mode,
+            max_new_tokens=args.max_new_tokens,
+            device_name=args.device,
+        )
+    else:
+        predictions = generate_causal_predictions(
+            model_name,
+            rows,
+            template,
+            mode=args.mode,
+            batch_size=batch_size,
+            max_new_tokens=args.max_new_tokens,
+            device_name=args.device,
+        )
     summary, details = summarize(rows, predictions, config)
     print_summary(summary)
 
@@ -283,7 +431,12 @@ def main() -> None:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         with output_path.open('w', encoding='utf-8') as output_file:
             json.dump(
-                {'model': args.model, 'summary': summary, 'examples': details},
+                {
+                    'mode': args.mode,
+                    'model': model_name,
+                    'summary': summary,
+                    'examples': details,
+                },
                 output_file,
                 indent=2,
                 ensure_ascii=False,
